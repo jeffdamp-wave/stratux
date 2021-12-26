@@ -447,7 +447,7 @@ func sendMsg(msg []byte, msgType uint8, maxAge time.Duration, priority int32) {
 		return
 	}
 
-	if (msgType & NETWORK_GDL90_STANDARD | NETWORK_STRATUX | NETWORK_STRATUS) != 0 {
+	if (msgType & (NETWORK_GDL90_STANDARD | NETWORK_STRATUX | NETWORK_STRATUS)) != 0 {
 		// It's a GDL90 message - do ui broadcast.
 		networkGDL90Chan <- msg
 	}

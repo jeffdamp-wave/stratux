@@ -519,11 +519,11 @@ func makeStratusStatus() []byte {
 	copy(msg[3:], thisVers)
 	msg[18] = 0
 
-	// temp := fmt.Sprintf("%.1f C", globalStatus.CPUTemp)
-	// copy(msg[19:], temp)
-	for i := 19; i <= 23; i++ {
-		msg[i] = 'A'
-	}
+	temp := fmt.Sprintf("%.1f C", globalStatus.CPUTemp)
+	copy(msg[19:], temp)
+	// for i := 19; i <= 23; i++ {
+	// 	msg[i] = 'A'
+	// }
 	msg[24] = 0x0
 
 	// battery % 0-100 write the temprature for now
