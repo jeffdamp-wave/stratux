@@ -440,15 +440,19 @@ func connectionWriter(connection connection) {
 	}
 }
 
-
 func sendMsg(msg []byte, msgType uint8, maxAge time.Duration, priority int32) {
-	if (msgType & NETWORK_GDL90_STANDARD) != 0 {
+
+	// TODO: this is probably not needed but for completeness.
+	if (msgType & NETWORK_STRATUS) != 0 && !globalSettings.Stratus_Enabled {
+		return
+	}
+
+	if (msgType & NETWORK_GDL90_STANDARD | NETWORK_STRATUX | NETWORK_STRATUS) != 0 {
 		// It's a GDL90 message - do ui broadcast.
 		networkGDL90Chan <- msg
 	}
 
 	// Don't send Stratux specific messages when emulating Stratus
-	// TODO: this is probably not needed but for completeness.
 	if (msgType & NETWORK_STRATUX) != 0 && globalSettings.Stratus_Enabled {
 		return
 	}
