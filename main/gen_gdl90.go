@@ -878,7 +878,9 @@ func sendTrafficReport() {
 
 func sendAllHeartbeatInfo() {
 	sendGDL90(makeHeartbeat(), DEFAULT_MSG_RATE, -20) // Highest priority, always needs to be send because we use it to detect when a client becomes available
-	sendGDL90(makeStratuxHeartbeat(), DEFAULT_MSG_RATE, 0)
+	if !globalSettings.Stratus_Enabled {
+		sendGDL90(makeStratuxHeartbeat(), DEFAULT_MSG_RATE, 0)
+	}
 }
 
 func sendAllOwnshipInfo() {
