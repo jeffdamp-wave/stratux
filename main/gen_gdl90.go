@@ -109,6 +109,8 @@ const (
 	
 	// Transimition rates for messages
 	DEFAULT_MSG_RATE     = time.Second  // 1Hz
+	STRATUX_INFO_RATE	 = DEFAULT_MSG_RATE
+	STRATUS_INFO_RATE    = 500 * time.Millisecond
 	STRATUX_OWNER_RATE   = DEFAULT_MSG_RATE
 	STRATUS_OWNER_RATE   = 100 * time.Millisecond // 10hz (need to test with more settings)
 	STRATUX_TRAFFIC_RATE = DEFAULT_MSG_RATE
@@ -838,12 +840,15 @@ func blinkStatusLED() {
 }
 
 func sendAllStatusInfo() {
+	timeout := STRATUX_INFO_RATE
+	
 	if globalSettings.Stratus_Enabled {
-		sendStratus(makeStratusStatus(), DEFAULT_MSG_RATE, -1)
+		timeout = STRATUS_INFO_RATE
+		sendStratus(makeStratusStatus(), timeout, 1)
 	}
 
-	sendStratux(makeStratuxStatus(), DEFAULT_MSG_RATE, 0)
-	sendGDL90(makeFFIDMessage(), DEFAULT_MSG_RATE, 0)
+	sendStratux(makeStratuxStatus(), timeout, 1)
+	sendGDL90(makeFFIDMessage(), timeout, 1)
 }
 
 
@@ -895,20 +900,24 @@ func heartBeatSender() {
 	lastState := globalSettings.Stratus_Enabled
 	ownerRate := STRATUX_OWNER_RATE
 	trafficRate := STRATUX_TRAFFIC_RATE
+	infoRate := STRATUX_INFO_RATE
 
 	if globalSettings.Stratus_Enabled {
 		ownerRate = STRATUS_OWNER_RATE
 		trafficRate = STRATUS_TRAFFIC_RATE
+		infoRate = STRATUS_INFO_RATE
 	}
 	
 	timer := time.NewTicker(DEFAULT_MSG_RATE)
 	timerMessageStats := time.NewTicker(2 * time.Second)
 	ownerTimer := time.NewTicker(ownerRate)
 	trafficTimer := time.NewTicker(trafficRate)
-
+	infoTimer := time.NewTicker(infoRate)
 	ledBlinking := false
 	for {
 		select {
+		case <- infoTimer.C:
+			sendAllStatusInfo()
 		case <-ownerTimer.C:
 			sendAllOwnshipInfo()
 		case <- trafficTimer.C:
