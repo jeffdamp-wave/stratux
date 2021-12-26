@@ -4,7 +4,7 @@ Not queueable:
 	makeHeartbeat()							[each second]
 	makeInitializationMessage()				[each second]
 	makeTrafficReport()						[re-generated each second depending on target status]
-	makeFFAHRSSimReport()					[short useful life]
-	makeAHRSGDL90Report()					[short useful life]
+	sendFFAHRSSimReport()					[short useful life]
+	sendAHRSGDL90Report()					[short useful life]
 Queueable:
 	relayMessage()							[all uplink messages]

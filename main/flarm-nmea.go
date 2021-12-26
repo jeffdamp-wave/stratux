@@ -428,7 +428,7 @@ func makePGRMZString() string {
 	return msg
 }
 
-func makeAHRSLevilReport() {
+func sendAHRSLevilReport() {
 	if !globalStatus.IMUConnected || !isAHRSValid() {
 		return
 	}

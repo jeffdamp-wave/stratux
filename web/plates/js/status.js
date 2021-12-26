@@ -196,6 +196,8 @@ function StatusCtrl($rootScope, $scope, $state, $http, $interval, craftService) 
 				$scope.visible_uat = true;
 				$scope.visible_es = true;
 			}
+
+			$scope.Stratus_Enabled = settings.Stratus_Enabled;
 			$scope.visible_gps = settings.GPS_Enabled;
 		}, function (response) {
 			// nop

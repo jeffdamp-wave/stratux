@@ -354,6 +354,14 @@ func handleSettingsSetRequest(w http.ResponseWriter, r *http.Request) {
 						globalSettings.AIS_Enabled = val.(bool)
 					case "Ping_Enabled":
 						globalSettings.Ping_Enabled = val.(bool)
+					case "Stratus_Enabled":
+						globalSettings.Stratus_Enabled = val.(bool)
+						// change address accordingly
+						ipStr := "1923168.10.1"
+						if globalSettings.Stratus_Enabled {
+							ipStr = "10.29.39.1"
+						}
+						setWifiIPAddress(ipStr)
 					case "GPS_Enabled":
 						globalSettings.GPS_Enabled = val.(bool)
 					case "IMU_Sensor_Enabled":
@@ -572,7 +580,7 @@ func handleDeleteAHRSLogFiles(w http.ResponseWriter, r *http.Request) {
 
 func handleDevelModeToggle(w http.ResponseWriter, r *http.Request) {
 	log.Printf("handleDevelModeToggle called!!!\n")
-	globalSettings.DeveloperMode = true
+	globalSettings.DeveloperMode = !globalSettings.DeveloperMode
 	saveSettings()
 }
 

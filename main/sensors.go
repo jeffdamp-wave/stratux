@@ -364,9 +364,11 @@ func sensorAttitudeSender() {
 			}
 			mySituation.muAttitude.Unlock()
 
-			makeAHRSGDL90Report() // Send whether or not valid - the function will invalidate the values as appropriate
-			makeAHRSSimReport()
-			makeAHRSLevilReport()
+			// TODO: decide if we want to only send FFAHRS when emulating FF
+			sendFFAHRSMessage()
+			sendAHRSGDL90Report() // Send whether or not valid - the function will invalidate the values as appropriate
+			sendAHRSSimReport()
+			sendAHRSLevilReport()
 
 			// Send to AHRS debugging server.
 			if ahrswebListener != nil {

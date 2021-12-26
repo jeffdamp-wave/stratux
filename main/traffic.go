@@ -374,7 +374,11 @@ func sendTrafficUpdates() {
 				OwnshipTrafficInfo = ti
 			} else if !shouldIgnore {
 				priority := computeTrafficPriority(&ti)
-				sendGDL90(makeTrafficReportMsg(ti), time.Second, priority)
+				timeout := STRATUX_TRAFFIC_RATE
+				if globalSettings.Stratus_Enabled {
+					timeout = STRATUS_TRAFFIC_RATE
+				}
+				sendGDL90(makeTrafficReportMsg(ti), timeout, priority)
 				thisMsgFLARM, validFLARM, alarmLevel := makeFlarmPFLAAString(ti)
 				if alarmLevel > highestAlarmLevel {
 					highestAlarmLevel = alarmLevel
@@ -389,9 +393,10 @@ func sendTrafficUpdates() {
 				}
 
 				// send traffic message to X-Plane
-				sendXPlane(createXPlaneTrafficMsg(ti.Icao_addr, ti.Lat, ti.Lng, ti.Alt, uint32(ti.Speed), int32(ti.Vvel), ti.OnGround, uint32(ti.Track), trafficCallsign), 1000, priority)
+				// TODO decide if we send XPlane and FLARM when in Stratus mode
+				sendXPlane(createXPlaneTrafficMsg(ti.Icao_addr, ti.Lat, ti.Lng, ti.Alt, uint32(ti.Speed), int32(ti.Vvel), ti.OnGround, uint32(ti.Track), trafficCallsign), timeout, priority)
 				if validFLARM {
-					sendNetFLARM(thisMsgFLARM, time.Second, priority)
+					sendNetFLARM(thisMsgFLARM, timeout, priority)
 				}
 			}
 		}
@@ -1428,7 +1433,7 @@ for testing of EFB and webUI response. Additionally, the "on ground" flag is set
 and speed invalid flag is set for headings 135-150 to allow testing of response to those conditions.
 
 */
-func updateDemoTraffic(icao uint32, tail string, relAlt float32, gs float64, offset int32) {
+func updateDemoTraffic(icao uint32, tail string, relAlt float32, gs float64, offset int32, alwaysVisable bool) {
 	var ti TrafficInfo
 	trafficMutex.Lock()
 	defer trafficMutex.Unlock()
@@ -1460,8 +1465,13 @@ func updateDemoTraffic(icao uint32, tail string, relAlt float32, gs float64, off
 
 	ti.Icao_addr = icao
 	ti.OnGround = false
-	ti.Addr_type = uint8(icao % 4) // 0 == ADS-B; 1 == reserved; 2 == TIS-B with ICAO address; 3 == TIS-B without ICAO address; 6 == ADS-R
-	if ti.Addr_type == 1 {         // reassign "reserved value" to ADS-R
+	mod := uint32(4)
+	if globalSettings.Stratus_Enabled {
+		mod = 3
+	}
+
+	ti.Addr_type = uint8(icao % mod) // 0 == ADS-B; 1 == ADS-B without ICO (Stratus); 2 == TIS-B with ICAO address; 3 == TIS-B without ICAO address; 6 == ADS-R (N/A Stratus)
+	if ti.Addr_type == 1 && !globalSettings.Stratus_Enabled {         // reassign "reserved value" to ADS-R
 		ti.Addr_type = 6
 	}
 
@@ -1513,7 +1523,7 @@ func updateDemoTraffic(icao uint32, tail string, relAlt float32, gs float64, off
 		ti.Last_source = 2
 	}
 
-	if hdg < 150 || hdg > 240 {
+	if hdg < 150 || hdg > 240  || alwaysVisable {
 		// now insert this into the traffic map...
 		postProcessTraffic(&ti)
 		traffic[ti.Icao_addr] = ti

@@ -146,7 +146,11 @@ func applyNetworkSettings(force bool, onlyWriteFiles bool) {
 	ipAddr := globalSettings.WiFiIPAddress
 	log.Printf("Applying new network settings for IP %s", ipAddr);
 	if ipAddr == "" {
-		ipAddr = "192.168.10.1"
+		if globalSettings.Stratus_Enabled == true {
+			ipAddr = "10.29.39.1"
+		} else {
+			ipAddr = "192.168.10.1"
+		}
 	}
 	ipParts := strings.Split(ipAddr, ".")
 	

@@ -106,7 +106,14 @@ const (
 	GPS_TYPE_NETWORK  = 0x0C
 	GPS_PROTOCOL_NMEA = 0x10
 	// other GPS types to be defined as needed
-
+	
+	// Transimition rates for messages
+	DEFAULT_MSG_RATE     = time.Second  // 1Hz
+	STRATUX_OWNER_RATE   = DEFAULT_MSG_RATE
+	STRATUS_OWNER_RATE   = 100 * time.Millisecond // 10hz (need to test with more settings)
+	STRATUX_TRAFFIC_RATE = DEFAULT_MSG_RATE
+	// 5Hz seems to be the minimum to keep traffic from blinking out when emulating stratus
+	STRATUS_TRAFFIC_RATE = 200 * time.Millisecond
 )
 
 var logFileHandle *os.File
@@ -288,15 +295,17 @@ func makeLatLng(v float32) []byte {
 }
 
 func isDetectedOwnshipValid() bool {
-	return stratuxClock.Since(OwnshipTrafficInfo.Last_seen).Seconds() < 10
+	return stratuxClock.Since(OwnshipTrafficInfo.Last_seen).Seconds() < 1
 }
 
-func makeOwnshipReport() bool {
+func sendOwnshipReport() bool {
 	gpsValid := isGPSValid()
 	selfOwnshipValid := isDetectedOwnshipValid()
 	if !gpsValid && !selfOwnshipValid {
 		return false
 	}
+
+	//TODO: this and access of mySituation should have a lock around them
 	curOwnship := OwnshipTrafficInfo
 
 	msg := make([]byte, 28)
@@ -414,7 +423,7 @@ func makeOwnshipReport() bool {
 
 	msg[18] = 0x01 // "Light (ICAO) < 15,500 lbs"
 
-	if selfOwnshipValid {
+	if len(curOwnship.Tail) > 0 {
 		// Limit tail number to 7 characters.
 		tail := curOwnship.Tail
 		if len(tail) > 7 {
@@ -447,13 +456,19 @@ func makeOwnshipReport() bool {
 		msg[19+i] = myReg[i]
 	}
 
-	sendGDL90(prepareMessage(msg), time.Second, -1)
-	sendXPlane(createXPlaneGpsMsg(lat, lon, mySituation.GPSAltitudeMSL, groundTrack, float32(gdSpeed)), time.Second, -1)
+	timeout := STRATUX_OWNER_RATE
+	if globalSettings.Stratus_Enabled {
+		timeout = STRATUS_OWNER_RATE
+	}
+
+	sendGDL90(prepareMessage(msg), timeout, -2)
+	//TODO: might not bother sending XPlane when stratus emulation is on
+	sendXPlane(createXPlaneGpsMsg(lat, lon, mySituation.GPSAltitudeMSL, groundTrack, float32(gdSpeed)), timeout, 0)
 
 	return true
 }
 
-func makeOwnshipGeometricAltitudeReport() bool {
+func sendOwnshipGeometricAltitudeReport() bool {
 	if !isGPSValid() {
 		return false
 	}
@@ -470,9 +485,49 @@ func makeOwnshipGeometricAltitudeReport() bool {
 	//TODO: "Figure of Merit". 0x7FFF "Not available".
 	msg[3] = 0x00
 	msg[4] = 0x0A
+	timeout := STRATUX_OWNER_RATE
+	if globalSettings.Stratus_Enabled {
+		timeout = STRATUX_OWNER_RATE
+	}
 
-	sendGDL90(prepareMessage(msg), time.Second, -1)
+	sendGDL90(prepareMessage(msg), timeout, -1)
 	return true
+}
+
+/*
+
+	Stratus "ID Message".
+
+	Emulates a Stratus 3 Status Message for Garmin Pilot
+
+*/
+func makeStratusStatus() []byte {
+	msg := make([]byte, 34)
+	msg[0] = 0x69 // Message type "Stratus 3".
+	msg[1] = 0    // ID message identifier.
+	msg[2] = 1    // Message version.
+
+	// TODO: find something more useful
+	thisVers := stratuxVersion[1:]
+	// 16 chars max
+	if len(thisVers) > 16 {
+		thisVers = thisVers[:16] 
+	}
+	copy(msg[3:], thisVers)
+	msg[18] = 0
+
+	temp := fmt.Sprintf("%.1f C", globalStatus.CPUTemp)
+	copy(msg[19:], temp)
+	msg[24] = 0x0
+
+	// battery % 0-100 write the temprature for now
+	msg[25] = byte(math.Min(math.Round(float64(globalStatus.CPUTemp)), 100))
+
+	// sets 0x10 for charge simbol 
+	// TODO: use this as an undervolt status?
+	msg[26] = 0x0 // 0x10
+
+	return prepareMessage(msg)
 }
 
 /*
@@ -681,13 +736,21 @@ func makeFFIDMessage() []byte {
 	for i := 3; i <= 10; i++ {
 		msg[i] = 0xFF
 	}
+	
 	devShortName := "Stratux" // Temporary. Will be populated in the future with other names.
+	devLongName := fmt.Sprintf("%s-%s", stratuxVersion, stratuxBuild)
+
+	// Just for emulation correctness
+	if globalSettings.Stratus_Enabled {
+		devShortName = "Stratus"
+		devLongName = fmt.Sprintf("Stratus3%s",stratuxBuild)
+	}
+
 	if len(devShortName) > 8 {
 		devShortName = devShortName[:8] // 8 chars.
 	}
 	copy(msg[11:], devShortName)
 
-	devLongName := fmt.Sprintf("%s-%s", stratuxVersion, stratuxBuild)
 	if len(devLongName) > 16 {
 		devLongName = devLongName[:16] // 16 chars.
 	}
@@ -700,6 +763,11 @@ func makeFFIDMessage() []byte {
 	return prepareMessage(msg)
 }
 
+/*
+
+	Standard GLD90 Heartbeat
+
+*/
 func makeHeartbeat() []byte {
 	msg := make([]byte, 7)
 	// See p.10.
@@ -769,22 +837,82 @@ func blinkStatusLED() {
 	}
 }
 
+func sendAllStatusInfo() {
+	if globalSettings.Stratus_Enabled {
+		sendStratus(makeStratusStatus(), DEFAULT_MSG_RATE, -1)
+	}
+
+	sendStratux(makeStratuxStatus(), DEFAULT_MSG_RATE, 0)
+	sendGDL90(makeFFIDMessage(), DEFAULT_MSG_RATE, 0)
+}
+
+
+func sendTrafficReport() {
+	// --- debug code: traffic demo ---
+	// Uncomment and compile to display large number of artificial traffic targets
+	
+		numTargets := uint32(36)
+		hexCode := uint32(0xFF0000)
+
+		for i := uint32(0); i < numTargets; i++ {
+			tail := fmt.Sprintf("DEMO%d", i)
+			alt := float32((i*117%2000)*25 + 2000)
+			hdg := int32((i * 149) % 360)
+			spd := float64(50 + ((i*23)%13)*37)
+
+			updateDemoTraffic(i|hexCode, tail, alt, spd, hdg, true)
+
+		}
+	
+
+	// ---end traffic demo code ---
+	sendTrafficUpdates()
+}
+
+func sendAllHeartbeatInfo() {
+	sendGDL90(makeHeartbeat(), DEFAULT_MSG_RATE, -20) // Highest priority, always needs to be send because we use it to detect when a client becomes available
+	sendStratux(makeStratuxHeartbeat(), DEFAULT_MSG_RATE, 0)
+}
+
 func sendAllOwnshipInfo() {
 	//log.Printf("Sending ownship info")
-	sendGDL90(makeHeartbeat(), time.Second, -20) // Highest priority, always needs to be send because we use it to detect when a client becomes available
-	sendGDL90(makeStratuxHeartbeat(), time.Second, 0)
-	sendGDL90(makeStratuxStatus(), time.Second, 0)
-	sendGDL90(makeFFIDMessage(), time.Second, 0)
-	makeOwnshipReport()
-	makeOwnshipGeometricAltitudeReport()
+	sendOwnshipReport()
+	sendOwnshipGeometricAltitudeReport()
+}
+
+func sendAllFLARMInfo() {
+
+	sendNetFLARM(makeGPRMCString(), DEFAULT_MSG_RATE, -1)
+	sendNetFLARM(makeGPGGAString(), DEFAULT_MSG_RATE, 0)
+	if isTempPressValid() && mySituation.BaroSourceType != BARO_TYPE_NONE && mySituation.BaroSourceType != BARO_TYPE_ADSBESTIMATE {
+		sendNetFLARM(makePGRMZString(), DEFAULT_MSG_RATE, 0)
+	}
+	sendNetFLARM("$GPGSA,A,3,,,,,,,,,,,,,1.0,1.0,1.0*33\r\n", DEFAULT_MSG_RATE, 1)	
 }
 
 func heartBeatSender() {
-	timer := time.NewTicker(1 * time.Second)
+	
+	lastState := globalSettings.Stratus_Enabled
+	ownerRate := STRATUX_OWNER_RATE
+	trafficRate := STRATUX_TRAFFIC_RATE
+
+	if globalSettings.Stratus_Enabled {
+		ownerRate = STRATUX_OWNER_RATE
+		trafficRate = STRATUS_TRAFFIC_RATE
+	}
+	
+	timer := time.NewTicker(DEFAULT_MSG_RATE)
 	timerMessageStats := time.NewTicker(2 * time.Second)
+	ownerTimer := time.NewTicker(ownerRate)
+	trafficTimer := time.NewTicker(trafficRate)
+
 	ledBlinking := false
 	for {
 		select {
+		case <-ownerTimer.C:
+			sendAllOwnshipInfo()
+		case <- trafficTimer.C:
+			sendTrafficReport()
 		case <-timer.C:
 			// Green LED - always on during normal operation.
 			//  Blinking when there is a critical system error (and Stratux is still running).
@@ -799,39 +927,30 @@ func heartBeatSender() {
 				go blinkStatusLED()
 				ledBlinking = true
 			}
-
-			sendAllOwnshipInfo()
-
-			sendNetFLARM(makeGPRMCString(), time.Second, -1)
-			sendNetFLARM(makeGPGGAString(), time.Second, 0)
-			if isTempPressValid() && mySituation.BaroSourceType != BARO_TYPE_NONE && mySituation.BaroSourceType != BARO_TYPE_ADSBESTIMATE {
-				sendNetFLARM(makePGRMZString(), time.Second, 0)
-			}
-			sendNetFLARM("$GPGSA,A,3,,,,,,,,,,,,,1.0,1.0,1.0*33\r\n", time.Second, 1)
-
-			// --- debug code: traffic demo ---
-			// Uncomment and compile to display large number of artificial traffic targets
-			/*
-				numTargets := uint32(36)
-				hexCode := uint32(0xFF0000)
-
-				for i := uint32(0); i < numTargets; i++ {
-					tail := fmt.Sprintf("DEMO%d", i)
-					alt := float32((i*117%2000)*25 + 2000)
-					hdg := int32((i * 149) % 360)
-					spd := float64(50 + ((i*23)%13)*37)
-
-					updateDemoTraffic(i|hexCode, tail, alt, spd, hdg)
-
-				}
-			*/
-
-			// ---end traffic demo code ---
-			sendTrafficUpdates()
+			
+			sendAllHeartbeatInfo()
 			updateStatus()
+			sendAllStatusInfo()
+			//TODO: could dissable flarm sending when in Stratus mode
+			sendAllFLARMInfo()
 		case <-timerMessageStats.C:
 			// Save a bit of CPU by not pruning the message log every 1 second.
 			updateMessageStats()
+
+			if lastState != globalSettings.Stratus_Enabled {
+				lastState = globalSettings.Stratus_Enabled
+				
+				if globalSettings.Stratus_Enabled {
+					ownerRate = STRATUX_OWNER_RATE
+					trafficRate = STRATUS_TRAFFIC_RATE
+				} else {
+					ownerRate = STRATUX_OWNER_RATE
+					trafficRate = STRATUX_TRAFFIC_RATE
+				}
+
+				ownerTimer = time.NewTicker(ownerRate)
+				trafficTimer = time.NewTicker(trafficRate)
+			}
 		}
 	}
 }
@@ -1166,12 +1285,13 @@ type settings struct {
 	DarkMode             bool
 	UAT_Enabled          bool
 	ES_Enabled           bool
-	OGN_Enabled        bool
-	AIS_Enabled        bool
+	OGN_Enabled          bool
+	AIS_Enabled          bool
 	Ping_Enabled         bool
 	GPS_Enabled          bool
 	BMP_Sensor_Enabled   bool
 	IMU_Sensor_Enabled   bool
+	Stratus_Enabled      bool
 	NetworkOutputs       []networkConnection
 	SerialOutputs        map[string]serialConnection
 	DisplayTrafficSource bool
@@ -1283,9 +1403,10 @@ func defaultSettings() {
 	globalSettings.GPS_Enabled = true
 	globalSettings.IMU_Sensor_Enabled = true
 	globalSettings.BMP_Sensor_Enabled = true
+	globalSettings.Stratus_Enabled = false
 	//FIXME: Need to change format below.
 	globalSettings.NetworkOutputs = []networkConnection{
-		{Conn: nil, Ip: "", Port: 4000, Capability: NETWORK_GDL90_STANDARD | NETWORK_AHRS_GDL90},
+		{Conn: nil, Ip: "", Port: 4000, Capability: NETWORK_GDL90_STANDARD | NETWORK_AHRS_GDL90 | NETWORK_STRATUS | NETWORK_STRATUX},
 		{Conn: nil, Ip: "", Port: 2000, Capability: NETWORK_FLARM_NMEA},
 		{Conn: nil, Ip: "", Port: 49002, Capability: NETWORK_POSITION_FFSIM | NETWORK_AHRS_FFSIM},
 	}
