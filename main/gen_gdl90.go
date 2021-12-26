@@ -109,8 +109,6 @@ const (
 	
 	// Transimition rates for messages
 	DEFAULT_MSG_RATE     = time.Second  // 1Hz
-	STRATUX_INFO_RATE    = DEFAULT_MSG_RATE
-	STRATUS_INFO_RATE    = 500 * time.Millisecond
 	STRATUX_OWNER_RATE   = DEFAULT_MSG_RATE
 	STRATUS_OWNER_RATE   = 100 * time.Millisecond // 10hz (need to test with more settings)
 	STRATUX_TRAFFIC_RATE = DEFAULT_MSG_RATE
@@ -843,20 +841,13 @@ func blinkStatusLED() {
 	}
 }
 
-// TODO: Temp code for messing around with this it suddenly stopped working
-func stratusInfoSender() {
-	timer := time.NewTicker(800 * time.Millisecond)
-	for {
-		<-timer.C
-		if globalSettings.Stratus_Enabled {
-			sendStratus(makeStratusStatus(), time.Second, 1)
-		}
-	}
-}
-
 func sendAllStatusInfo() {
-	timeout := STRATUX_INFO_RATE
-	sendStratux(makeStratuxStatus(), timeout, 1)
+	timeout := DEFAULT_MSG_RATE
+	
+	if globalSettings.Stratus_Enabled {
+		sendGDL90(makeStratusStatus(), timeout, 1)
+	}
+	sendGDL90(makeStratuxStatus(), timeout, 1)
 	sendGDL90(makeFFIDMessage(), timeout, 1)
 	// Geo ownership is on a slower update path then ownership
 	sendOwnshipGeometricAltitudeReport()
@@ -886,7 +877,7 @@ func sendTrafficReport() {
 
 func sendAllHeartbeatInfo() {
 	sendGDL90(makeHeartbeat(), DEFAULT_MSG_RATE, -20) // Highest priority, always needs to be send because we use it to detect when a client becomes available
-	sendStratux(makeStratuxHeartbeat(), DEFAULT_MSG_RATE, 0)
+	sendGDL90(makeStratuxHeartbeat(), DEFAULT_MSG_RATE, 0)
 }
 
 func sendAllOwnshipInfo() {
@@ -908,25 +899,20 @@ func heartBeatSender() {
 	lastState := globalSettings.Stratus_Enabled
 	ownerRate := STRATUX_OWNER_RATE
 	trafficRate := STRATUX_TRAFFIC_RATE
-	infoRate := STRATUX_INFO_RATE
 
 	if globalSettings.Stratus_Enabled {
 		ownerRate = STRATUS_OWNER_RATE
 		trafficRate = STRATUS_TRAFFIC_RATE
-		infoRate = STRATUS_INFO_RATE
 	}
 	
 	timer := time.NewTicker(DEFAULT_MSG_RATE)
 	timerMessageStats := time.NewTicker(2 * time.Second)
 	ownerTimer := time.NewTicker(ownerRate)
 	trafficTimer := time.NewTicker(trafficRate)
-	infoTimer := time.NewTicker(infoRate)
 	ledBlinking := false
 
 	for {
 		select {
-		case <- infoTimer.C:
-			sendAllStatusInfo()
 		case <-ownerTimer.C:
 			sendAllOwnshipInfo()
 		case <- trafficTimer.C:
@@ -960,11 +946,9 @@ func heartBeatSender() {
 				if globalSettings.Stratus_Enabled {
 					ownerRate = STRATUS_OWNER_RATE
 					trafficRate = STRATUS_TRAFFIC_RATE
-					infoRate = STRATUS_INFO_RATE
 				} else {
 					ownerRate = STRATUX_OWNER_RATE
 					trafficRate = STRATUX_TRAFFIC_RATE
-					infoRate = STRATUX_INFO_RATE
 				}
 
 				ownerTimer = time.NewTicker(ownerRate)
@@ -1425,7 +1409,7 @@ func defaultSettings() {
 	globalSettings.Stratus_Enabled = false
 	//FIXME: Need to change format below.
 	globalSettings.NetworkOutputs = []networkConnection{
-		{Conn: nil, Ip: "", Port: 4000, Capability: NETWORK_GDL90_STANDARD | NETWORK_AHRS_GDL90 | NETWORK_STRATUS | NETWORK_STRATUX},
+		{Conn: nil, Ip: "", Port: 4000, Capability: NETWORK_GDL90_STANDARD | NETWORK_AHRS_GDL90 },
 		{Conn: nil, Ip: "", Port: 2000, Capability: NETWORK_FLARM_NMEA},
 		{Conn: nil, Ip: "", Port: 49002, Capability: NETWORK_POSITION_FFSIM | NETWORK_AHRS_FFSIM},
 	}
@@ -1864,9 +1848,7 @@ func main() {
 
 	// Start the heartbeat message loop in the background, once per second.
 	go heartBeatSender()
-	
-	// added this because the HR is gone
-	go stratusInfoSender()
+
 	// Initialize the (out) network handler.
 	initNetwork()
 

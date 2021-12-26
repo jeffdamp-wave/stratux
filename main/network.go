@@ -36,13 +36,11 @@ var netMutex *sync.Mutex              // netMutex needs to be locked before acce
 var totalNetworkMessagesSent uint32
 
 const (
-	NETWORK_GDL90_STANDARD = 0x1
-	NETWORK_AHRS_FFSIM     = 0x2
-	NETWORK_AHRS_GDL90     = 0x4
-	NETWORK_FLARM_NMEA     = 0x8
-	NETWORK_POSITION_FFSIM = 0x10
-	NETWORK_STRATUS        = 0x20
-	NETWORK_STRATUX        = 0x40
+	NETWORK_GDL90_STANDARD = 1
+	NETWORK_AHRS_FFSIM     = 2
+	NETWORK_AHRS_GDL90     = 4
+	NETWORK_FLARM_NMEA     = 8
+	NETWORK_POSITION_FFSIM = 16
 	dhcp_lease_file        = "/var/lib/misc/dnsmasq.leases"
 	dhcp_lease_dir         = "/var/lib/misc/"
 	extra_hosts_file       = "/etc/stratux-static-hosts.conf"
@@ -442,19 +440,9 @@ func connectionWriter(connection connection) {
 
 func sendMsg(msg []byte, msgType uint8, maxAge time.Duration, priority int32) {
 
-	// TODO: this is probably not needed but for completeness.
-	if (msgType & NETWORK_STRATUS) != 0 && !globalSettings.Stratus_Enabled {
-		return
-	}
-
-	if (msgType & (NETWORK_GDL90_STANDARD | NETWORK_STRATUX | NETWORK_STRATUS)) != 0 {
+	if (msgType & NETWORK_GDL90_STANDARD) != 0 {
 		// It's a GDL90 message - do ui broadcast.
 		networkGDL90Chan <- msg
-	}
-
-	// Don't send Stratux specific messages when emulating Stratus
-	if (msgType & NETWORK_STRATUX) != 0 && globalSettings.Stratus_Enabled {
-		return
 	}
 
 	netMutex.Lock()
@@ -468,15 +456,6 @@ func sendMsg(msg []byte, msgType uint8, maxAge time.Duration, priority int32) {
 		}
 		conn.MessageQueue().Put(priority, maxAge, msg)
 	}
-}
-
-
-func sendStratux(msg []byte, maxAge time.Duration, priority int32) {
-	sendMsg(msg, NETWORK_STRATUX, maxAge, priority)
-}
-
-func sendStratus(msg []byte, maxAge time.Duration, priority int32) {
-	sendMsg(msg, NETWORK_STRATUS, maxAge, priority)
 }
 
 func sendGDL90(msg []byte, maxAge time.Duration, priority int32) {
