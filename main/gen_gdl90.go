@@ -843,14 +843,19 @@ func blinkStatusLED() {
 	}
 }
 
+// TODO: Temp code for messing around with this it suddenly stopped working
+func stratusInfoSender() {
+	timer := time.NewTicker(800 * time.Millisecond)
+	for {
+		<-timer.C
+		if globalSettings.Stratus_Enabled {
+			sendStratus(makeStratusStatus(), time.Second, 1)
+		}
+	}
+}
+
 func sendAllStatusInfo() {
 	timeout := STRATUX_INFO_RATE
-	
-	if globalSettings.Stratus_Enabled {
-		timeout = STRATUS_INFO_RATE
-		sendStratus(makeStratusStatus(), timeout, 1)
-	}
-
 	sendStratux(makeStratuxStatus(), timeout, 1)
 	sendGDL90(makeFFIDMessage(), timeout, 1)
 	// Geo ownership is on a slower update path then ownership
@@ -1859,7 +1864,9 @@ func main() {
 
 	// Start the heartbeat message loop in the background, once per second.
 	go heartBeatSender()
-
+	
+	// added this because the HR is gone
+	go stratusInfoSender()
 	// Initialize the (out) network handler.
 	initNetwork()
 
