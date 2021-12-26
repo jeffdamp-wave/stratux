@@ -897,7 +897,7 @@ func heartBeatSender() {
 	trafficRate := STRATUX_TRAFFIC_RATE
 
 	if globalSettings.Stratus_Enabled {
-		ownerRate = STRATUX_OWNER_RATE
+		ownerRate = STRATUS_OWNER_RATE
 		trafficRate = STRATUS_TRAFFIC_RATE
 	}
 	
@@ -931,7 +931,6 @@ func heartBeatSender() {
 			sendAllHeartbeatInfo()
 			updateStatus()
 			sendAllStatusInfo()
-			//TODO: could dissable flarm sending when in Stratus mode
 			sendAllFLARMInfo()
 		case <-timerMessageStats.C:
 			// Save a bit of CPU by not pruning the message log every 1 second.
