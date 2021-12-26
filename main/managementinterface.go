@@ -357,7 +357,7 @@ func handleSettingsSetRequest(w http.ResponseWriter, r *http.Request) {
 					case "Stratus_Enabled":
 						globalSettings.Stratus_Enabled = val.(bool)
 						// change address accordingly
-						ipStr := "1923168.10.1"
+						ipStr := "192.168.10.1"
 						if globalSettings.Stratus_Enabled {
 							ipStr = "10.29.39.1"
 						}
