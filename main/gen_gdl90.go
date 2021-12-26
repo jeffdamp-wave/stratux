@@ -115,7 +115,7 @@ const (
 	// 5Hz seems to be the minimum to keep traffic from blinking out when emulating stratus
 	STRATUS_TRAFFIC_RATE = 200 * time.Millisecond
 	STRATUX_AHRS_RATE    = 50 * time.Millisecond
-	STRATUS_AHRS_RATE    = 100 * time.Millisecond
+	STRATUS_AHRS_RATE    = STRATUX_AHRS_RATE //100 * time.Millisecond
 )
 
 var logFileHandle *os.File
@@ -846,8 +846,9 @@ func sendAllStatusInfo() {
 	
 	if globalSettings.Stratus_Enabled {
 		sendGDL90(makeStratusStatus(), timeout, 1)
+	}else {
+		sendGDL90(makeStratuxStatus(), timeout, 1) // see if this breaks the web UI
 	}
-	sendGDL90(makeStratuxStatus(), timeout, 1)
 	sendGDL90(makeFFIDMessage(), timeout, 1)
 	// Geo ownership is on a slower update path then ownership
 	sendOwnshipGeometricAltitudeReport()
@@ -857,7 +858,7 @@ func sendAllStatusInfo() {
 func sendTrafficReport() {
 	// --- debug code: traffic demo ---
 	// Uncomment and compile to display large number of artificial traffic targets
-	
+	/*
 		numTargets := uint32(10)
 		hexCode := uint32(0xFF0000)
 
@@ -869,7 +870,7 @@ func sendTrafficReport() {
 
 			updateDemoTraffic(i|hexCode, tail, alt, spd, hdg, true)
 		}
-	
+	*/
 
 	// ---end traffic demo code ---
 	sendTrafficUpdates()
