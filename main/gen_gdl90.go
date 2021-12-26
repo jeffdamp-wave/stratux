@@ -747,7 +747,7 @@ func makeFFIDMessage() []byte {
 	// Just for emulation correctness
 	if globalSettings.Stratus_Enabled {
 		devShortName = "Stratus"
-		devLongName = fmt.Sprintf("Stratus3%s",stratuxBuild)
+		devLongName = fmt.Sprintf("Stratus 3 %s",stratuxBuild)
 	}
 
 	if len(devShortName) > 8 {
