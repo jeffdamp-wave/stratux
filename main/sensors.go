@@ -210,8 +210,13 @@ func sensorAttitudeSender() {
 		defer ahrswebListener.Close()
 	}
 
+	lastState := globalSettings.Stratus_Enabled
+	rate := STRATUX_AHRS_RATE
+	if globalSettings.Stratus_Enabled {
+		rate = STRATUS_AHRS_RATE
+	}
 	// Need a sampling freq faster than 10Hz
-	timer := time.NewTicker(50 * time.Millisecond) // ~20Hz update.
+	timer := time.NewTicker(rate) // ~20Hz update.
 	for {
 		// Set sensor gyro calibrations
 		if c, d := &globalSettings.C, &globalSettings.D; d[0]*d[0]+d[1]*d[1]+d[2]*d[2] > 0 {
@@ -238,10 +243,17 @@ func sensorAttitudeSender() {
 
 		failNum = 0
 		<-timer.C
-		time.Sleep(950 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 		for globalSettings.IMU_Sensor_Enabled && globalStatus.IMUConnected {
 			<-timer.C
-
+			if lastState != globalSettings.Stratus_Enabled {
+				if globalSettings.Stratus_Enabled {
+					rate = STRATUS_AHRS_RATE
+				} else {
+					rate = STRATUX_AHRS_RATE
+				}
+				timer = time.NewTicker(rate)
+			}
 			// Process calibration and level requests
 			select {
 			case action := <-cal:
@@ -364,9 +376,11 @@ func sensorAttitudeSender() {
 			}
 			mySituation.muAttitude.Unlock()
 
-			makeAHRSGDL90Report() // Send whether or not valid - the function will invalidate the values as appropriate
-			makeAHRSSimReport()
-			makeAHRSLevilReport()
+			// TODO: decide if we want to only send FFAHRS when emulating FF
+			sendFFAHRSMessage()
+			sendAHRSGDL90Report() // Send whether or not valid - the function will invalidate the values as appropriate
+			sendAHRSSimReport()
+			sendAHRSLevilReport()
 
 			// Send to AHRS debugging server.
 			if ahrswebListener != nil {

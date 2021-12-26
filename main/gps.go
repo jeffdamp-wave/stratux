@@ -1896,20 +1896,24 @@ func gpsSerialReader() {
 	return
 }
 
-func makeAHRSSimReport() {
+func sendAHRSSimReport() {
+	if globalSettings.Stratus_Enabled {
+		return
+	}
+
 	msg := createXPlaneAttitudeMsg(float32(mySituation.AHRSGyroHeading), float32(mySituation.AHRSPitch), float32(mySituation.AHRSRoll))
 	sendXPlane(msg, 100 * time.Millisecond, 1)
 }
 
 /*
 
-	ForeFlight "AHRS Message".
+	ForeFlight/Stratus "AHRS Message".
 
 	Sends AHRS information to ForeFlight.
 
 */
 
-func makeFFAHRSMessage() {
+func sendFFAHRSMessage() {
 	msg := make([]byte, 12)
 	msg[0] = 0x65 // Message type "ForeFlight".
 	msg[1] = 0x01 // AHRS message identifier.
@@ -1920,13 +1924,20 @@ func makeFFAHRSMessage() {
 	hdg := uint16(0xFFFF)
 	ias := uint16(0xFFFF)
 	tas := uint16(0xFFFF)
-
+	// TODO: This should use a RW lock
 	if isAHRSValid() {
 		if !isAHRSInvalidValue(mySituation.AHRSPitch) {
 			pitch = common.RoundToInt16(mySituation.AHRSPitch * 10)
 		}
 		if !isAHRSInvalidValue(mySituation.AHRSRoll) {
 			roll = common.RoundToInt16(mySituation.AHRSRoll * 10)
+		}
+		if !isAHRSInvalidValue(mySituation.AHRSGyroHeading) {
+			hdg = uint16(common.RoundToInt16(mySituation.AHRSGyroHeading * 10))
+		}
+		// TODO: not sure if using GS for TAS is a good idea, better than nothing?
+		if isGPSGroundTrackValid() {
+			tas = uint16(mySituation.GPSGroundSpeed + 0.5)
 		}
 	}
 
@@ -1947,26 +1958,19 @@ func makeFFAHRSMessage() {
 	msg[9] = byte(ias & 0xFF)
 
 	// True Airspeed.
-	msg[10] = byte((tas >> 8) & 0xFF)
-	msg[11] = byte(tas & 0xFF)
+	msg[10] = byte((tas & 0xFF0) >> 4)
+	msg[11] = byte((tas & 0x00F) << 4)
 
-	sendMsg(prepareMessage(msg), NETWORK_AHRS_GDL90, 200 * time.Millisecond, 3)
+	sendMsg(prepareMessage(msg), NETWORK_AHRS_GDL90,  100 * time.Millisecond, 3)
 }
 
-/*
-	ffAttitudeSender()
-	 Send AHRS message in FF format every 200ms.
-*/
-
-func ffAttitudeSender() {
-	ticker := time.NewTicker(200 * time.Millisecond)
-	for {
-		<-ticker.C
-		makeFFAHRSMessage()
+func sendAHRSGDL90Report() {
+	
+	// TODO: Decide if we want to send both
+	if globalSettings.Stratus_Enabled {
+		return
 	}
-}
 
-func makeAHRSGDL90Report() {
 	msg := make([]byte, 24)
 	msg[0] = 0x4c
 	msg[1] = 0x45
@@ -2079,9 +2083,10 @@ func gpsAttitudeSender() {
 					mySituation.AHRSGyroHeading = float64(mySituation.GPSTrueCourse)
 					mySituation.AHRSLastAttitudeTime = stratuxClock.Time
 
-					makeAHRSGDL90Report()
-					makeAHRSSimReport()
-					makeAHRSLevilReport()
+					sendAHRSGDL90Report()
+					sendAHRSSimReport()
+					sendAHRSLevilReport()
+					sendFFAHRSMessage()
 				}
 				mySituation.muGPSPerformance.Unlock()
 			}
@@ -2174,7 +2179,6 @@ func pollGPS() {
 	readyToInitGPS = true //TODO: Implement more robust method (channel control) to kill zombie serial readers
 	timer := time.NewTicker(4 * time.Second)
 	go gpsAttitudeSender()
-	go ffAttitudeSender()
 	for {
 		<-timer.C
 		// GPS enabled, was not connected previously?

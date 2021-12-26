@@ -373,7 +373,6 @@ func onConnectionClosed(conn connection) {
 	netMutex.Unlock()
 }
 
-
 func collectMessages(conn connection) []byte {
 	data := make([]byte, 0)
 	maxMsgLen := 0
@@ -439,8 +438,8 @@ func connectionWriter(connection connection) {
 	}
 }
 
-
 func sendMsg(msg []byte, msgType uint8, maxAge time.Duration, priority int32) {
+
 	if (msgType & NETWORK_GDL90_STANDARD) != 0 {
 		// It's a GDL90 message - do ui broadcast.
 		networkGDL90Chan <- msg
