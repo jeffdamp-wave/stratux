@@ -1966,7 +1966,8 @@ func sendFFAHRSMessage() {
 
 func sendAHRSGDL90Report() {
 	
-	if gloabalSettings.Stratus_Enabled {
+	// TODO: Decide if we want to send both
+	if globalSettings.Stratus_Enabled {
 		return
 	}
 
