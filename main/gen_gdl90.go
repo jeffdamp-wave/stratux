@@ -109,7 +109,7 @@ const (
 	
 	// Transimition rates for messages
 	DEFAULT_MSG_RATE     = time.Second  // 1Hz
-	STRATUX_INFO_RATE	 = DEFAULT_MSG_RATE
+	STRATUX_INFO_RATE    = DEFAULT_MSG_RATE
 	STRATUS_INFO_RATE    = 500 * time.Millisecond
 	STRATUX_OWNER_RATE   = DEFAULT_MSG_RATE
 	STRATUS_OWNER_RATE   = 100 * time.Millisecond // 10hz (need to test with more settings)
@@ -517,8 +517,11 @@ func makeStratusStatus() []byte {
 	copy(msg[3:], thisVers)
 	msg[18] = 0
 
-	temp := fmt.Sprintf("%.1f C", globalStatus.CPUTemp)
-	copy(msg[19:], temp)
+	// temp := fmt.Sprintf("%.1f C", globalStatus.CPUTemp)
+	// copy(msg[19:], temp)
+	for i := 19; i <= 23; i++ {
+		msg[i] = 'A'
+	}
 	msg[24] = 0x0
 
 	// battery % 0-100 write the temprature for now
