@@ -849,7 +849,7 @@ func stratusInfoSender() {
 	for {
 		<-timer.C
 		if globalSettings.Stratus_Enabled {
-			sendGDL90(makeStratusStatus(), time.Second, 1)
+			sendStratus(makeStratusStatus(), time.Second, 1)
 		}
 	}
 }
