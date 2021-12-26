@@ -851,6 +851,8 @@ func sendAllStatusInfo() {
 
 	sendStratux(makeStratuxStatus(), timeout, 1)
 	sendGDL90(makeFFIDMessage(), timeout, 1)
+	// Geo ownership is on a slower update path then ownership
+	sendOwnshipGeometricAltitudeReport()
 }
 
 
@@ -858,7 +860,7 @@ func sendTrafficReport() {
 	// --- debug code: traffic demo ---
 	// Uncomment and compile to display large number of artificial traffic targets
 	
-		numTargets := uint32(36)
+		numTargets := uint32(10)
 		hexCode := uint32(0xFF0000)
 
 		for i := uint32(0); i < numTargets; i++ {
@@ -868,7 +870,6 @@ func sendTrafficReport() {
 			spd := float64(50 + ((i*23)%13)*37)
 
 			updateDemoTraffic(i|hexCode, tail, alt, spd, hdg, true)
-
 		}
 	
 
@@ -882,9 +883,7 @@ func sendAllHeartbeatInfo() {
 }
 
 func sendAllOwnshipInfo() {
-	//log.Printf("Sending ownship info")
 	sendOwnshipReport()
-	sendOwnshipGeometricAltitudeReport()
 }
 
 func sendAllFLARMInfo() {
@@ -916,6 +915,7 @@ func heartBeatSender() {
 	trafficTimer := time.NewTicker(trafficRate)
 	infoTimer := time.NewTicker(infoRate)
 	ledBlinking := false
+
 	for {
 		select {
 		case <- infoTimer.C:
@@ -951,11 +951,13 @@ func heartBeatSender() {
 				lastState = globalSettings.Stratus_Enabled
 				
 				if globalSettings.Stratus_Enabled {
-					ownerRate = STRATUX_OWNER_RATE
+					ownerRate = STRATUS_OWNER_RATE
 					trafficRate = STRATUS_TRAFFIC_RATE
+					infoRate = STRATUS_INFO_RATE
 				} else {
 					ownerRate = STRATUX_OWNER_RATE
 					trafficRate = STRATUX_TRAFFIC_RATE
+					infoRate = STRATUX_INFO_RATE
 				}
 
 				ownerTimer = time.NewTicker(ownerRate)
