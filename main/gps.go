@@ -1897,9 +1897,9 @@ func gpsSerialReader() {
 }
 
 func sendAHRSSimReport() {
-	// if gloabalSettings.Stratus_Enabled {
-	// 	return
-	// }
+	if globalSettings.Stratus_Enabled {
+		return
+	}
 
 	msg := createXPlaneAttitudeMsg(float32(mySituation.AHRSGyroHeading), float32(mySituation.AHRSPitch), float32(mySituation.AHRSRoll))
 	sendXPlane(msg, 100 * time.Millisecond, 1)

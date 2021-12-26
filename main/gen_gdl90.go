@@ -461,12 +461,11 @@ func sendOwnshipReport() bool {
 	timeout := STRATUX_OWNER_RATE
 	if globalSettings.Stratus_Enabled {
 		timeout = STRATUS_OWNER_RATE
+	} else {
+		sendXPlane(createXPlaneGpsMsg(lat, lon, mySituation.GPSAltitudeMSL, groundTrack, float32(gdSpeed)), timeout, 0)
 	}
 
-	sendGDL90(prepareMessage(msg), timeout, -2)
-	//TODO: might not bother sending XPlane when stratus emulation is on
-	sendXPlane(createXPlaneGpsMsg(lat, lon, mySituation.GPSAltitudeMSL, groundTrack, float32(gdSpeed)), timeout, 0)
-
+	sendGDL90(prepareMessage(msg), timeout, 1)
 	return true
 }
 
