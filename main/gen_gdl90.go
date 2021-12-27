@@ -486,13 +486,13 @@ func sendOwnshipGeometricAltitudeReport() bool {
 	//TODO: "Figure of Merit". 0x7FFF "Not available".
 	msg[3] = 0x00
 	msg[4] = 0x0A
-	timeout := STRATUX_OWNER_RATE
-	if globalSettings.Stratus_Enabled {
-		timeout = STRATUX_OWNER_RATE
-	}
 
-	sendGDL90(prepareMessage(msg), timeout, -1)
+	sendGDL90(prepareMessage(msg), DEFAULT_MSG_RATE, -1)
 	return true
+}
+
+func isErrorRecent() bool {
+	return stratuxClock.Since(globalSettings.LastErrorTime).Seconds() < 30
 }
 
 /*
@@ -517,7 +517,7 @@ func makeStratusStatus() []byte {
 	copy(msg[3:], thisVers)
 	msg[18] = 0
 
-	temp := fmt.Sprintf("%.1f C", globalStatus.CPUTemp)
+	temp := fmt.Sprintf("%.1fC", globalStatus.CPUTemp)
 	copy(msg[19:], temp)
 	// for i := 19; i <= 23; i++ {
 	// 	msg[i] = 'A'
@@ -527,9 +527,12 @@ func makeStratusStatus() []byte {
 	// battery % 0-100 write the temprature for now
 	msg[25] = byte(math.Min(math.Round(float64(globalStatus.CPUTemp)), 100))
 
-	// sets 0x10 for charge simbol 
-	// TODO: use this as an undervolt status?
-	msg[26] = 0x0 // 0x10
+	// set 0x10 for charge simbol 
+	if isErrorRecent() {
+		msg[26] = 0x10
+	} else {
+		msg[26] = 0x0 
+	}
 
 	return prepareMessage(msg)
 }
@@ -746,8 +749,8 @@ func makeFFIDMessage() []byte {
 
 	// Just for emulation correctness
 	if globalSettings.Stratus_Enabled {
-		devShortName = "Stratus"
-		devLongName = fmt.Sprintf("Stratus 3 %s",stratuxBuild)
+		//devShortName = "Stratux"
+		devLongName = fmt.Sprintf("Stratux E %s",stratuxBuild)
 	}
 
 	if len(devShortName) > 8 {
@@ -1388,6 +1391,7 @@ type status struct {
 	UAT_NOTAM_total                            uint32
 	UAT_OTHER_total                            uint32
 	Errors                                     []string
+	LastErrorTime                              time.Time
 	Logfile_Size                               int64
 	AHRS_LogFiles_Size                         int64
 	BMPConnected                               bool
@@ -1466,6 +1470,7 @@ func readSettings() {
 
 func addSystemError(err error) {
 	globalStatus.Errors = append(globalStatus.Errors, err.Error())
+	globalSettings.LastErrorTime = stratuxClock.Time
 }
 
 var systemErrsMutex *sync.Mutex
@@ -1495,6 +1500,7 @@ func addSingleSystemErrorf(ident string, format string, a ...interface{}) {
 	}
 	// Do nothing on this call if the error has already been thrown.
 	systemErrsMutex.Unlock()
+	globalSettings.LastErrorTime = stratuxClock.Time
 }
 
 func overlayctl(cmd string) {
