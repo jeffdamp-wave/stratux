@@ -745,7 +745,7 @@ func makeFFIDMessage() []byte {
 
 	// Just for emulation correctness
 	if globalSettings.Stratus_Enabled {
-		devShortName = "StratuxE"
+		devShortName = "Stratus"
 		devLongName = fmt.Sprintf("Stratux E %s",stratuxVersion)
 	}
 
