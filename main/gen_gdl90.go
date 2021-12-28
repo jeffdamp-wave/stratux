@@ -1471,6 +1471,7 @@ func readSettings() {
 func addSystemError(err error) {
 	globalStatus.Errors = append(globalStatus.Errors, err.Error())
 	globalStatus.LastErrorTime = stratuxClock.Time
+	log.Printf("Critical system error: %s\n", err.Error())
 }
 
 var systemErrsMutex *sync.Mutex
