@@ -115,7 +115,7 @@ const (
 	STRATUS_OWNER_RATE   = 100 * time.Millisecond // 10hz (need to test with more settings)
 	STRATUX_TRAFFIC_RATE = DEFAULT_MSG_RATE
 	// 5Hz seems to be the minimum to keep traffic from blinking out when emulating stratus
-	STRATUS_TRAFFIC_RATE = 200 * time.Millisecond
+	STRATUS_TRAFFIC_RATE = 900 * time.Millisecond
 	STRATUX_AHRS_RATE    = 50 * time.Millisecond
 	STRATUS_AHRS_RATE    = STRATUX_AHRS_RATE //100 * time.Millisecond
 )
@@ -860,8 +860,8 @@ func sendAllStatusInfo() {
 func sendTrafficReport() {
 	// --- debug code: traffic demo ---
 	// Uncomment and compile to display large number of artificial traffic targets
-	/*
-		numTargets := uint32(10)
+	
+		numTargets := uint32(20)
 		hexCode := uint32(0xFF0000)
 
 		for i := uint32(0); i < numTargets; i++ {
@@ -872,7 +872,7 @@ func sendTrafficReport() {
 
 			updateDemoTraffic(i|hexCode, tail, alt, spd, hdg, true)
 		}
-	*/
+	
 
 	// ---end traffic demo code ---
 	sendTrafficUpdates()
