@@ -860,7 +860,7 @@ func sendAllStatusInfo() {
 func sendTrafficReport() {
 	// --- debug code: traffic demo ---
 	// Uncomment and compile to display large number of artificial traffic targets
-	
+	/*
 		numTargets := uint32(20)
 		hexCode := uint32(0xFF0000)
 
@@ -872,8 +872,7 @@ func sendTrafficReport() {
 
 			updateDemoTraffic(i|hexCode, tail, alt, spd, hdg, true)
 		}
-	
-
+	*/
 	// ---end traffic demo code ---
 	sendTrafficUpdates()
 }
