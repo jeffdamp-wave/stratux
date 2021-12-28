@@ -491,10 +491,6 @@ func sendOwnshipGeometricAltitudeReport() bool {
 	return true
 }
 
-func isErrorRecent() bool {
-	return stratuxClock.Since(globalStatus.LastErrorTime).Seconds() < 60
-}
-
 /*
 
 	Stratus "ID Message".
@@ -528,7 +524,7 @@ func makeStratusStatus() []byte {
 	msg[25] = byte(math.Min(math.Round(float64(globalStatus.CPUTemp)), 100))
 
 	// set 0x10 for charge simbol 
-	if isErrorRecent() {
+	if len(globalStatus.Errors) > 0 {
 		msg[26] = 0x10
 	} else {
 		msg[26] = 0x0 
@@ -826,7 +822,7 @@ func relayMessage(msgtype uint16, msg []byte) {
 }
 
 func blinkStatusLED() {
-	timer := time.NewTicker(200 * time.Millisecond)
+	timer := time.NewTicker(100 * time.Millisecond)
 	ledON := false
 	for {
 		<-timer.C
@@ -837,7 +833,7 @@ func blinkStatusLED() {
 			ioutil.WriteFile("/sys/class/leds/led0/brightness", []byte("1\n"), 0644)
 		}
 		ledON = !ledON
-		if ledON != globalStatus.NightMode && (len(globalStatus.Errors) == 0 || !isErrorRecent()) { // System error was cleared - leave it on again
+		if ledON != globalStatus.NightMode && len(globalStatus.Errors) == 0 { // System error was cleared - leave it on again
 			return
 		}
 
@@ -927,7 +923,7 @@ func heartBeatSender() {
 			// Green LED - always on during normal operation.
 			//  Blinking when there is a critical system error (and Stratux is still running).
 
-			if len(globalStatus.Errors) == 0  || !isErrorRecent(){ // Any system errors?
+			if len(globalStatus.Errors) == 0 { // Any system errors?
 				if !globalStatus.NightMode { // LED is off by default (/boot/config.txt.)
 					// Turn on green ACT LED on the Pi.
 					ioutil.WriteFile("/sys/class/leds/led0/brightness", []byte("1\n"), 0644)
@@ -1391,7 +1387,6 @@ type status struct {
 	UAT_NOTAM_total                            uint32
 	UAT_OTHER_total                            uint32
 	Errors                                     []string
-	LastErrorTime                              time.Time
 	Logfile_Size                               int64
 	AHRS_LogFiles_Size                         int64
 	BMPConnected                               bool
@@ -1470,8 +1465,7 @@ func readSettings() {
 
 func addSystemError(err error) {
 	globalStatus.Errors = append(globalStatus.Errors, err.Error())
-	globalStatus.LastErrorTime = stratuxClock.Time
-	log.Printf("Critical system error: %s\n", err.Error())
+	log.Printf("Added critical system error: %s\n", err.Error())
 }
 
 var systemErrsMutex *sync.Mutex
@@ -1501,7 +1495,6 @@ func addSingleSystemErrorf(ident string, format string, a ...interface{}) {
 	}
 	// Do nothing on this call if the error has already been thrown.
 	systemErrsMutex.Unlock()
-	globalStatus.LastErrorTime = stratuxClock.Time
 }
 
 func overlayctl(cmd string) {
