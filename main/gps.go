@@ -1914,6 +1914,10 @@ func sendAHRSSimReport() {
 */
 
 func sendFFAHRSMessage() {
+	if globalSettings.Stratus_Enabled {
+		return
+	}
+	
 	msg := make([]byte, 12)
 	msg[0] = 0x65 // Message type "ForeFlight".
 	msg[1] = 0x01 // AHRS message identifier.
@@ -1968,7 +1972,7 @@ func sendAHRSGDL90Report() {
 	
 	// TODO: Decide if we want to send both
 	if globalSettings.Stratus_Enabled {
-		return
+//		return
 	}
 
 	msg := make([]byte, 24)
