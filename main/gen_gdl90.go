@@ -746,7 +746,7 @@ func makeFFIDMessage() []byte {
 	// Just for emulation correctness
 	if globalSettings.Stratus_Enabled {
 		devShortName = "Stratus"
-		devLongName = fmt.Sprintf("Stratux E %s",stratuxVersion)
+		devLongName = fmt.Sprintf("StratuxE %s",stratuxVersion)
 	}
 
 	if len(devShortName) > 8 {
@@ -1465,7 +1465,6 @@ func readSettings() {
 
 func addSystemError(err error) {
 	globalStatus.Errors = append(globalStatus.Errors, err.Error())
-	log.Printf("Added critical system error: %s\n", err.Error())
 }
 
 var systemErrsMutex *sync.Mutex
