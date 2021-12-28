@@ -492,7 +492,7 @@ func sendOwnshipGeometricAltitudeReport() bool {
 }
 
 func isErrorRecent() bool {
-	return stratuxClock.Since(globalSettings.LastErrorTime).Seconds() < 30
+	return stratuxClock.Since(globalStatus.LastErrorTime).Seconds() < 30
 }
 
 /*
@@ -1470,7 +1470,7 @@ func readSettings() {
 
 func addSystemError(err error) {
 	globalStatus.Errors = append(globalStatus.Errors, err.Error())
-	globalSettings.LastErrorTime = stratuxClock.Time
+	globalStatus.LastErrorTime = stratuxClock.Time
 }
 
 var systemErrsMutex *sync.Mutex
@@ -1500,7 +1500,7 @@ func addSingleSystemErrorf(ident string, format string, a ...interface{}) {
 	}
 	// Do nothing on this call if the error has already been thrown.
 	systemErrsMutex.Unlock()
-	globalSettings.LastErrorTime = stratuxClock.Time
+	globalStatus.LastErrorTime = stratuxClock.Time
 }
 
 func overlayctl(cmd string) {
