@@ -492,7 +492,7 @@ func sendOwnshipGeometricAltitudeReport() bool {
 }
 
 func isErrorRecent() bool {
-	return stratuxClock.Since(globalStatus.LastErrorTime).Seconds() < 30
+	return stratuxClock.Since(globalStatus.LastErrorTime).Seconds() < 60
 }
 
 /*
@@ -749,8 +749,8 @@ func makeFFIDMessage() []byte {
 
 	// Just for emulation correctness
 	if globalSettings.Stratus_Enabled {
-		//devShortName = "Stratux"
-		devLongName = fmt.Sprintf("Stratux E %s",stratuxBuild)
+		devShortName = "StratuxE"
+		devLongName = fmt.Sprintf("Stratux E %s",stratuxVersion)
 	}
 
 	if len(devShortName) > 8 {
@@ -826,7 +826,7 @@ func relayMessage(msgtype uint16, msg []byte) {
 }
 
 func blinkStatusLED() {
-	timer := time.NewTicker(100 * time.Millisecond)
+	timer := time.NewTicker(200 * time.Millisecond)
 	ledON := false
 	for {
 		<-timer.C
@@ -837,7 +837,7 @@ func blinkStatusLED() {
 			ioutil.WriteFile("/sys/class/leds/led0/brightness", []byte("1\n"), 0644)
 		}
 		ledON = !ledON
-		if ledON != globalStatus.NightMode && len(globalStatus.Errors) == 0 { // System error was cleared - leave it on again
+		if ledON != globalStatus.NightMode && (len(globalStatus.Errors) == 0 || !isErrorRecent()) { // System error was cleared - leave it on again
 			return
 		}
 
@@ -927,7 +927,7 @@ func heartBeatSender() {
 			// Green LED - always on during normal operation.
 			//  Blinking when there is a critical system error (and Stratux is still running).
 
-			if len(globalStatus.Errors) == 0 { // Any system errors?
+			if len(globalStatus.Errors) == 0  || !isErrorRecent(){ // Any system errors?
 				if !globalStatus.NightMode { // LED is off by default (/boot/config.txt.)
 					// Turn on green ACT LED on the Pi.
 					ioutil.WriteFile("/sys/class/leds/led0/brightness", []byte("1\n"), 0644)
