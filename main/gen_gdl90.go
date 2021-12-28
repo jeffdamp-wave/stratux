@@ -109,6 +109,8 @@ const (
 	
 	// Transimition rates for messages
 	DEFAULT_MSG_RATE     = time.Second  // 1Hz
+	STRATUX_STATUS_RATE  = DEFAULT_MSG_RATE
+	STRATUS_STATUS_RATE  = 800 * time.Millisecond
 	STRATUX_OWNER_RATE   = DEFAULT_MSG_RATE
 	STRATUS_OWNER_RATE   = 100 * time.Millisecond // 10hz (need to test with more settings)
 	STRATUX_TRAFFIC_RATE = DEFAULT_MSG_RATE
@@ -841,10 +843,11 @@ func blinkStatusLED() {
 }
 
 func sendAllStatusInfo() {
-	timeout := DEFAULT_MSG_RATE
-	
+	timeout := STRATUX_STATUS_RATE
+
 	if globalSettings.Stratus_Enabled {
-		sendGDL90(makeStratusStatus(), timeout, 1)
+		timeout = STRATUS_STATUS_RATE
+		sendGDL90(makeStratusStatus(), timeout, -20)
 	}else {
 		sendGDL90(makeStratuxStatus(), timeout, 1) // see if this breaks the web UI
 	}
@@ -901,20 +904,25 @@ func heartBeatSender() {
 	lastState := globalSettings.Stratus_Enabled
 	ownerRate := STRATUX_OWNER_RATE
 	trafficRate := STRATUX_TRAFFIC_RATE
+	statusRate := STRATUX_STATUS_RATE
 
 	if globalSettings.Stratus_Enabled {
 		ownerRate = STRATUS_OWNER_RATE
 		trafficRate = STRATUS_TRAFFIC_RATE
+		statusRate = STRATUS_STATUS_RATE
 	}
 	
 	timer := time.NewTicker(DEFAULT_MSG_RATE)
 	timerMessageStats := time.NewTicker(2 * time.Second)
 	ownerTimer := time.NewTicker(ownerRate)
 	trafficTimer := time.NewTicker(trafficRate)
+	statusTimer := time.NewTicker(statusRate)
 	ledBlinking := false
 
 	for {
 		select {
+		case <-statusTimer.C:
+			sendAllStatusInfo()
 		case <-ownerTimer.C:
 			sendAllOwnshipInfo()
 		case <- trafficTimer.C:
@@ -935,8 +943,7 @@ func heartBeatSender() {
 			}
 			
 			sendAllHeartbeatInfo()
-			updateStatus()
-			sendAllStatusInfo()
+			updateGlobalStatus()
 			sendAllFLARMInfo()
 		case <-timerMessageStats.C:
 			// Save a bit of CPU by not pruning the message log every 1 second.
@@ -1054,7 +1061,7 @@ func updateMessageStats() {
 
 }
 
-func updateStatus() {
+func updateGlobalStatus() {
 	if mySituation.GPSFixQuality == 2 {
 		globalStatus.GPS_solution = "3D GPS + SBAS"
 	} else if mySituation.GPSFixQuality == 1 {
