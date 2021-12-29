@@ -363,7 +363,7 @@ func handleSettingsSetRequest(w http.ResponseWriter, r *http.Request) {
 						}
 						setWifiIPAddress(ipStr)
 					case "FakeTrafficCount":
-						globalSettings.FakeTrafficCount = int(val.(int))
+						globalSettings.FakeTrafficCount = int(val.(float64))
 					case "GPS_Enabled":
 						globalSettings.GPS_Enabled = val.(bool)
 					case "IMU_Sensor_Enabled":
