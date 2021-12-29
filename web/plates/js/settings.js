@@ -298,6 +298,7 @@ function SettingsCtrl($rootScope, $scope, $state, $location, $window, $http) {
 		$scope.AIS_Enabled = settings.AIS_Enabled;
 		$scope.Ping_Enabled = settings.Ping_Enabled;
 		$scope.Stratus_Enabled = settings.Stratus_Enabled;
+		$scope.FakeTrafficCount = settings.FakeTrafficCount;
 		$scope.GPS_Enabled = settings.GPS_Enabled;
 
 		$scope.IMU_Sensor_Enabled = settings.IMU_Sensor_Enabled;
@@ -409,6 +410,17 @@ function SettingsCtrl($rootScope, $scope, $state, $location, $window, $http) {
 			settings["PPM"] = parseInt($scope.PPM);
 			var newsettings = {
 				"PPM": settings["PPM"]
+			};
+			// console.log(angular.toJson(newsettings));
+			setSettings(angular.toJson(newsettings));
+		}
+	};
+
+	$scope.updatefaketraffic = function () {
+		if ($scope.FakeTrafficCount !== undefined && $scope.FakeTrafficCount !== null && $scope.FakeTrafficCount !== settings["FakeTrafficCount"]) {
+			settings["FakeTrafficCount"] = parseInt($scope.FakeTrafficCount);
+			var newsettings = {
+				"FakeTrafficCount": settings["FakeTrafficCount"]
 			};
 			// console.log(angular.toJson(newsettings));
 			setSettings(angular.toJson(newsettings));

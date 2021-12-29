@@ -110,14 +110,14 @@ const (
 	// Transimition rates for messages
 	DEFAULT_MSG_RATE     = time.Second  // 1Hz
 	STRATUX_STATUS_RATE  = DEFAULT_MSG_RATE
-	STRATUS_STATUS_RATE  = 800 * time.Millisecond
+	STRATUS_STATUS_RATE  = DEFAULT_MSG_RATE //800 * time.Millisecond
 	STRATUX_OWNER_RATE   = DEFAULT_MSG_RATE
-	STRATUS_OWNER_RATE   = 100 * time.Millisecond // 10hz (need to test with more settings)
+	STRATUS_OWNER_RATE   = 200 * time.Millisecond // 5hz 
 	STRATUX_TRAFFIC_RATE = DEFAULT_MSG_RATE
 	// 5Hz seems to be the minimum to keep traffic from blinking out when emulating stratus
-	STRATUS_TRAFFIC_RATE = 200 * time.Millisecond
+	STRATUS_TRAFFIC_RATE = 900 * time.Millisecond
 	STRATUX_AHRS_RATE    = 50 * time.Millisecond
-	STRATUS_AHRS_RATE    = STRATUX_AHRS_RATE //100 * time.Millisecond
+	STRATUS_AHRS_RATE    = 50 * time.Millisecond
 )
 
 var logFileHandle *os.File
@@ -747,8 +747,8 @@ func makeFFIDMessage() []byte {
 
 	// Just for emulation correctness
 	if globalSettings.Stratus_Enabled {
-		devShortName = "Stratus"
-		devLongName = fmt.Sprintf("StratuxE %s",stratuxVersion)
+		devShortName = "StratuxE"
+		devLongName = fmt.Sprintf("StratuxE %s",stratuxBuild)
 	}
 
 	if len(devShortName) > 8 {
@@ -847,11 +847,11 @@ func sendAllStatusInfo() {
 
 	if globalSettings.Stratus_Enabled {
 		timeout = STRATUS_STATUS_RATE
-		sendGDL90(makeStratusStatus(), timeout, -20)
+		sendGDL90(makeStratusStatus(), timeout, -1)
 	}else {
-		sendGDL90(makeStratuxStatus(), timeout, 1) // see if this breaks the web UI
+		sendGDL90(makeStratuxStatus(), timeout, 0) // see if this breaks the web UI
 	}
-	sendGDL90(makeFFIDMessage(), timeout, 1)
+	sendGDL90(makeFFIDMessage(), timeout, 0)
 	// Geo ownership is on a slower update path then ownership
 	sendOwnshipGeometricAltitudeReport()
 }
@@ -859,9 +859,9 @@ func sendAllStatusInfo() {
 
 func sendTrafficReport() {
 	// --- debug code: traffic demo ---
-	// Uncomment and compile to display large number of artificial traffic targets
-	/*
-		numTargets := uint32(20)
+	// Only accessable under dev settings
+	if globalSettings.FakeTrafficCount > 0 {
+		numTargets := uint32(globalSettings.FakeTrafficCount)
 		hexCode := uint32(0xFF0000)
 
 		for i := uint32(0); i < numTargets; i++ {
@@ -872,7 +872,7 @@ func sendTrafficReport() {
 
 			updateDemoTraffic(i|hexCode, tail, alt, spd, hdg, true)
 		}
-	*/
+	}
 	// ---end traffic demo code ---
 	sendTrafficUpdates()
 }
@@ -1303,6 +1303,7 @@ type settings struct {
 	BMP_Sensor_Enabled   bool
 	IMU_Sensor_Enabled   bool
 	Stratus_Enabled      bool
+	FakeTrafficCount     int
 	NetworkOutputs       []networkConnection
 	SerialOutputs        map[string]serialConnection
 	DisplayTrafficSource bool
@@ -1415,6 +1416,7 @@ func defaultSettings() {
 	globalSettings.IMU_Sensor_Enabled = true
 	globalSettings.BMP_Sensor_Enabled = true
 	globalSettings.Stratus_Enabled = false
+	globalSettings.FakeTrafficCount = 0
 	//FIXME: Need to change format below.
 	globalSettings.NetworkOutputs = []networkConnection{
 		{Conn: nil, Ip: "", Port: 4000, Capability: NETWORK_GDL90_STANDARD | NETWORK_AHRS_GDL90},
