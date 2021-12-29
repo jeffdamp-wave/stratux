@@ -417,13 +417,12 @@ function SettingsCtrl($rootScope, $scope, $state, $location, $window, $http) {
 	};
 
 	$scope.updatefaketraffic = function () {
-		settings["FakeTrafficCount"] = 0;
-		if (($scope.FakeTrafficCount !== undefined) && ($scope.FakeTrafficCount !== null)) {
+		if ($scope.FakeTrafficCount !== undefined && $scope.FakeTrafficCount !== null && $scope.FakeTrafficCount !== settings["FakeTrafficCount"]) {
 			settings["FakeTrafficCount"] = parseInt($scope.FakeTrafficCount);
 			var newsettings = {
 				"FakeTrafficCount": settings["FakeTrafficCount"]
 			};
-			
+			// console.log(angular.toJson(newsettings));
 			setSettings(angular.toJson(newsettings));
 		}
 	};
