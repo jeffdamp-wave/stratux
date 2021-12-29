@@ -158,7 +158,7 @@ Stratux makes available a webserver to retrieve statistics which may be useful t
   "ES_Enabled": false,
   "Ping_Enabled": false,
   "Stratus_Enabled": false,
-  "FakeTraffic_Enabled": false,
+  "FakeTrafficCount": 0,
   "GPS_Enabled": true,
   "BMP_Sensor_Enabled": true,
   "IMU_Sensor_Enabled": true,

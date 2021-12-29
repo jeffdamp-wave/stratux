@@ -860,8 +860,8 @@ func sendAllStatusInfo() {
 func sendTrafficReport() {
 	// --- debug code: traffic demo ---
 	// Only accessable under dev settings
-	if globalSettings.FakeTraffic_Enabled {
-		numTargets := uint32(20)
+	if globalSettings.FakeTrafficCount > 0 {
+		numTargets := uint32(globalSettings.FakeTrafficCount)
 		hexCode := uint32(0xFF0000)
 
 		for i := uint32(0); i < numTargets; i++ {
@@ -1303,7 +1303,7 @@ type settings struct {
 	BMP_Sensor_Enabled   bool
 	IMU_Sensor_Enabled   bool
 	Stratus_Enabled      bool
-	FakeTraffic_Enabled  bool
+	FakeTrafficCount     uint32
 	NetworkOutputs       []networkConnection
 	SerialOutputs        map[string]serialConnection
 	DisplayTrafficSource bool
@@ -1416,7 +1416,7 @@ func defaultSettings() {
 	globalSettings.IMU_Sensor_Enabled = true
 	globalSettings.BMP_Sensor_Enabled = true
 	globalSettings.Stratus_Enabled = false
-	globalSettings.FakeTraffic_Enabled = false
+	globalSettings.FakeTrafficCount = 0
 	//FIXME: Need to change format below.
 	globalSettings.NetworkOutputs = []networkConnection{
 		{Conn: nil, Ip: "", Port: 4000, Capability: NETWORK_GDL90_STANDARD | NETWORK_AHRS_GDL90},

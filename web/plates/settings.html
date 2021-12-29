@@ -381,12 +381,6 @@
                             <ui-switch ng-model='Ping_Enabled' settings-change></ui-switch>
                         </div>
                     </div>
-                    <div class="form-group reset-flow">
-                        <label class="control-label col-xs-5">Enable Fake ADS-B Traffic</label>
-                        <div class="col-xs-7">
-                            <ui-switch ng-model='FakeTraffic_Enabled' settings-change></ui-switch>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
@@ -430,6 +424,14 @@
                             <ui-switch ng-model='PersistentLogging' ui-turn-on="modalRebootRequired" settings-change>
                             </ui-switch>
                         </div>
+                    </div>
+                    <div class="form-group reset-flow">
+                        <label class="control-label col-xs-5">Fake ADS-B Traffic Count</label>
+                        <form name="FakeTraffic" ng-submit="updateFakeTraffic()" novalidate>
+                            <!-- type="number" not supported except on mobile -->
+                            <input class="col-xs-7" type="number" ng-model="FakeTrafficCount"  placeholder="0-100" min="0"
+                            max="100" ng-blur="updateFakeTraffic()" />
+                        </form>
                     </div>
                 </div>
             </div>

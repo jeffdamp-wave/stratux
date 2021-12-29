@@ -260,7 +260,7 @@ function SettingsCtrl($rootScope, $scope, $state, $location, $window, $http) {
 
 	$scope.$parent.helppage = 'plates/settings-help.html';
 
-	var toggles = ['UAT_Enabled', 'ES_Enabled', 'OGN_Enabled', 'AIS_Enabled', 'Ping_Enabled', 'Stratus_Enabled', 'FakeTraffic_Enabled', 'GPS_Enabled', 'IMU_Sensor_Enabled',
+	var toggles = ['UAT_Enabled', 'ES_Enabled', 'OGN_Enabled', 'AIS_Enabled', 'Ping_Enabled', 'Stratus_Enabled', 'FakeTrafficCount', 'GPS_Enabled', 'IMU_Sensor_Enabled',
 		'BMP_Sensor_Enabled', 'DisplayTrafficSource', 'DEBUG', 'ReplayLog', 'AHRSLog', 'PersistentLogging', 'GDL90MSLAlt_Enabled', 'EstimateBearinglessDist', 'DarkMode'];
 
 	var settings = {};
@@ -298,7 +298,7 @@ function SettingsCtrl($rootScope, $scope, $state, $location, $window, $http) {
 		$scope.AIS_Enabled = settings.AIS_Enabled;
 		$scope.Ping_Enabled = settings.Ping_Enabled;
 		$scope.Stratus_Enabled = settings.Stratus_Enabled;
-		$scope.FakeTraffic_Enabled = settings.FakeTraffic_Enabled;
+		$scope.FakeTrafficCount = settings.FakeTrafficCount;
 		$scope.GPS_Enabled = settings.GPS_Enabled;
 
 		$scope.IMU_Sensor_Enabled = settings.IMU_Sensor_Enabled;
@@ -412,6 +412,18 @@ function SettingsCtrl($rootScope, $scope, $state, $location, $window, $http) {
 				"PPM": settings["PPM"]
 			};
 			// console.log(angular.toJson(newsettings));
+			setSettings(angular.toJson(newsettings));
+		}
+	};
+
+	$scope.updateFakeTraffic = function () {
+		settings["FakeTraffic"] = 0;
+		if (($scope.FakeTraffic !== undefined) && ($scope.FakeTraffic !== null)) {
+			settings["FakeTraffic"] = parseInt($scope.FakeTraffic);
+			var newsettings = {
+				"FakeTraffic": settings["FakeTraffic"]
+			};
+			
 			setSettings(angular.toJson(newsettings));
 		}
 	};
