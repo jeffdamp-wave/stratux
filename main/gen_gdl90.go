@@ -851,7 +851,7 @@ func sendAllStatusInfo() {
 	}else {
 		sendGDL90(makeStratuxStatus(), timeout, 0) // see if this breaks the web UI
 	}
-	sendGDL90(makeFFIDMessage(), timeout, 0)
+	sendGDL90(makeFFIDMessage(), timeout, -1)
 	// Geo ownership is on a slower update path then ownership
 	sendOwnshipGeometricAltitudeReport()
 }
