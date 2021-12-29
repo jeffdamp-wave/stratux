@@ -97,7 +97,7 @@ func (conn *networkConnection) GetDesiredPacketSize() int {
 	// For GP to detect Stratux, the IP has to be set accordingly. However, GP can only handle one GDL90 message per datagram.
 	// We just assume that if the user configures this IP, then probably to use Garmin Pilot or something else that only supports Stratus 3
 	// - and therefore try to behave more like a Stratus 3.
-	if globalSettings.WiFiIPAddress == "10.29.39.1" {
+	if globalSettings.Stratus_Enabled {
 		return 1
 	}
 	return 1024

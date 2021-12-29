@@ -210,6 +210,12 @@
                             <ui-switch ng-model='EstimateBearinglessDist' settings-change></ui-switch>
                         </div>
                     </div>
+                    <div class="form-group reset-flow">
+                        <label class="control-label col-xs-5">Stratus 3 Emulation for GP</label>
+                        <div class="col-xs-7">
+                            <ui-switch ng-model='Stratus_Enabled' settings-change></ui-switch>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -369,7 +375,6 @@
                             </form>
                         </div>
                     </div>
-
                     <div class="form-group reset-flow">
                         <label class="control-label col-xs-5">Ping ADS-B</label>
                         <div class="col-xs-7">
@@ -377,9 +382,9 @@
                         </div>
                     </div>
                     <div class="form-group reset-flow">
-                        <label class="control-label col-xs-5">Stratus 3 Emulation for GP (Experimental)</label>
+                        <label class="control-label col-xs-5">Enable Fake ADS-B Traffic</label>
                         <div class="col-xs-7">
-                            <ui-switch ng-model='Stratus_Enabled' settings-change></ui-switch>
+                            <ui-switch ng-model='FakeTraffic_Enabled' settings-change></ui-switch>
                         </div>
                     </div>
                 </div>

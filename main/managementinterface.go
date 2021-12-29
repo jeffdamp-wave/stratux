@@ -362,6 +362,8 @@ func handleSettingsSetRequest(w http.ResponseWriter, r *http.Request) {
 							ipStr = "10.29.39.1"
 						}
 						setWifiIPAddress(ipStr)
+					case "FakeTraffic_Enabled":
+						globalSettings.FakeTraffic_Enabled = val.(bool)
 					case "GPS_Enabled":
 						globalSettings.GPS_Enabled = val.(bool)
 					case "IMU_Sensor_Enabled":
@@ -476,7 +478,11 @@ func handleSettingsSetRequest(w http.ResponseWriter, r *http.Request) {
 					case "WiFiPassphrase":
 						setWifiPassphrase(val.(string))
 					case "WiFiIPAddress":
-						setWifiIPAddress(val.(string))
+						ipStr := val.(string);
+						if ipStr == "10.29.39.1" || ipStr == "10.30.40.1" {
+							globalSettings.Stratus_Enabled = true;
+						}
+						setWifiIPAddress(ipStr)
 					case "WiFiMode":
 						setWiFiMode(int(val.(float64)))
 					case "WiFiDirectPin":
