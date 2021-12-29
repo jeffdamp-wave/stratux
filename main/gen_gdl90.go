@@ -110,7 +110,7 @@ const (
 	// Transimition rates for messages
 	DEFAULT_MSG_RATE     = time.Second  // 1Hz
 	STRATUX_STATUS_RATE  = DEFAULT_MSG_RATE
-	STRATUS_STATUS_RATE  = DEFAULT_MSG_RATE //800 * time.Millisecond
+	STRATUS_STATUS_RATE  = 800 * time.Millisecond
 	STRATUX_OWNER_RATE   = DEFAULT_MSG_RATE
 	STRATUS_OWNER_RATE   = 200 * time.Millisecond // 5hz 
 	STRATUX_TRAFFIC_RATE = DEFAULT_MSG_RATE
@@ -847,11 +847,11 @@ func sendAllStatusInfo() {
 
 	if globalSettings.Stratus_Enabled {
 		timeout = STRATUS_STATUS_RATE
-		sendGDL90(makeStratusStatus(), timeout, -1)
+		sendGDL90(makeStratusStatus(), timeout, -20)
 	}else {
 		sendGDL90(makeStratuxStatus(), timeout, 0) // see if this breaks the web UI
 	}
-	sendGDL90(makeFFIDMessage(), timeout, 0)
+	sendGDL90(makeFFIDMessage(), timeout, -1)
 	// Geo ownership is on a slower update path then ownership
 	sendOwnshipGeometricAltitudeReport()
 }
