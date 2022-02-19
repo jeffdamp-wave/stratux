@@ -1337,6 +1337,7 @@ type settings struct {
 	EstimateBearinglessDist bool
 	RadarLimits          int
 	RadarRange           int
+	LimitTraffic_Enabled bool
 
 	OGNAddr              string
 	OGNAddrType          int
@@ -1444,6 +1445,7 @@ func defaultSettings() {
 	globalSettings.RadarLimits = 2000
 	globalSettings.RadarRange = 10
 	globalSettings.AltitudeOffset = 0
+	globalSettings.LimitTraffic_Enabled = false
 
 	globalSettings.PWMDutyMin = 0
 }

@@ -2045,7 +2045,7 @@ func sendAHRSGDL90Report() {
 	msg[19] = byte(palt & 0xFF)
 
 	// Vertical Speed
-		msg[20] = byte((vs >> 8) & 0xFF)
+	msg[20] = byte((vs >> 8) & 0xFF)
 	msg[21] = byte(vs & 0xFF)
 
 	// Reserved
