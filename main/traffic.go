@@ -367,6 +367,12 @@ func sendTrafficUpdates() {
 			//TODO: Coast old traffic? Need to determine how FF, WingX, etc deal with stale targets.
 			logTraffic(ti) // only add to the SQLite log if it's not stale
 
+			// BUGBUG: Garmin Pilot can crash when more than 70 targets while using Synthetic Vision
+			// To work around this, until they fix it, restrict the size of targets to the radar range in the web UI
+			if globalSettings.LimitTraffic_Enabled {
+				shouldIgnore |= ti.Distance > float64(globalSettings.RadarRange) * 1852.0 * 1.3
+			}
+
 			if isOwnshipTi {
 				if globalSettings.DEBUG {
 					log.Printf("Ownship target detected for code %X\n", ti.Icao_addr)
