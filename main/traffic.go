@@ -370,7 +370,7 @@ func sendTrafficUpdates() {
 			// BUGBUG: Garmin Pilot can crash when more than 70 targets while using Synthetic Vision
 			// To work around this, until they fix it, restrict the size of targets to the radar range in the web UI
 			if globalSettings.LimitTraffic_Enabled {
-				shouldIgnore |= (ti.Distance > float64(globalSettings.RadarRange) * 1852.0 * 1.3)
+				shouldIgnore = shouldIgnore | (ti.Distance > float64(globalSettings.RadarRange) * 1852.0 * 1.3)
 			}
 
 			if isOwnshipTi {
