@@ -198,6 +198,7 @@ function StatusCtrl($rootScope, $scope, $state, $http, $interval, craftService) 
 			}
 
 			$scope.Stratus_Enabled = settings.Stratus_Enabled;
+			$scope.LimitTraffic_Enabled = settings.LimitTraffic_Enabled;
 			$scope.visible_gps = settings.GPS_Enabled;
 		}, function (response) {
 			// nop
