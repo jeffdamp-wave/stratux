@@ -362,6 +362,8 @@ func handleSettingsSetRequest(w http.ResponseWriter, r *http.Request) {
 							ipStr = "10.29.39.1"
 						}
 						setWifiIPAddress(ipStr)
+					case "LimitTraffic_Enabled":
+						globalSettings.LimitTraffic_Enabled = val.(bool)
 					case "FakeTrafficCount":
 						globalSettings.FakeTrafficCount = int(val.(float64))
 					case "GPS_Enabled":
@@ -408,8 +410,6 @@ func handleSettingsSetRequest(w http.ResponseWriter, r *http.Request) {
 					case "RadarRange":
 						globalSettings.RadarRange = int(val.(float64))
 						radarUpdate.SendJSON(globalSettings)
-					case "LimitTraffic_Enabled":
-						globalSettings.LimitTraffic_Enabled = val.(bool)
 					case "Baud":
 						if globalSettings.SerialOutputs != nil {
 							for dev, serialOut := range globalSettings.SerialOutputs {

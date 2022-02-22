@@ -1303,6 +1303,7 @@ type settings struct {
 	BMP_Sensor_Enabled   bool
 	IMU_Sensor_Enabled   bool
 	Stratus_Enabled      bool
+	LimitTraffic_Enabled bool
 	FakeTrafficCount     int
 	NetworkOutputs       []networkConnection
 	SerialOutputs        map[string]serialConnection
@@ -1337,7 +1338,6 @@ type settings struct {
 	EstimateBearinglessDist bool
 	RadarLimits          int
 	RadarRange           int
-	LimitTraffic_Enabled bool
 
 	OGNAddr              string
 	OGNAddrType          int
