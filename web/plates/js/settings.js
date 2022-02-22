@@ -260,7 +260,7 @@ function SettingsCtrl($rootScope, $scope, $state, $location, $window, $http) {
 
 	$scope.$parent.helppage = 'plates/settings-help.html';
 
-	var toggles = ['UAT_Enabled', 'ES_Enabled', 'OGN_Enabled', 'AIS_Enabled', 'Ping_Enabled', 'Stratus_Enabled', 'GPS_Enabled', 'IMU_Sensor_Enabled',
+	var toggles = ['UAT_Enabled', 'ES_Enabled', 'OGN_Enabled', 'AIS_Enabled', 'Ping_Enabled', 'Stratus_Enabled', 'LimitTraffic_Enabled', 'GPS_Enabled', 'IMU_Sensor_Enabled',
 		'BMP_Sensor_Enabled', 'DisplayTrafficSource', 'DEBUG', 'ReplayLog', 'AHRSLog', 'PersistentLogging', 'GDL90MSLAlt_Enabled', 'EstimateBearinglessDist', 'DarkMode'];
 
 	var settings = {};
@@ -298,6 +298,7 @@ function SettingsCtrl($rootScope, $scope, $state, $location, $window, $http) {
 		$scope.AIS_Enabled = settings.AIS_Enabled;
 		$scope.Ping_Enabled = settings.Ping_Enabled;
 		$scope.Stratus_Enabled = settings.Stratus_Enabled;
+		$scope.LimitTraffic_Enabled = settings.LimitTraffic_Enabled;
 		$scope.FakeTrafficCount = settings.FakeTrafficCount;
 		$scope.GPS_Enabled = settings.GPS_Enabled;
 

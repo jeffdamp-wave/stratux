@@ -362,6 +362,8 @@ func handleSettingsSetRequest(w http.ResponseWriter, r *http.Request) {
 							ipStr = "10.29.39.1"
 						}
 						setWifiIPAddress(ipStr)
+					case "LimitTraffic_Enabled":
+						globalSettings.LimitTraffic_Enabled = val.(bool)
 					case "FakeTrafficCount":
 						globalSettings.FakeTrafficCount = int(val.(float64))
 					case "GPS_Enabled":

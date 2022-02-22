@@ -467,7 +467,7 @@ func sendOwnshipReport() bool {
 		sendXPlane(createXPlaneGpsMsg(lat, lon, mySituation.GPSAltitudeMSL, groundTrack, float32(gdSpeed)), timeout, 0)
 	}
 
-	sendGDL90(prepareMessage(msg), timeout, 1)
+	sendGDL90(prepareMessage(msg), timeout, -1)
 	return true
 }
 
@@ -1303,6 +1303,7 @@ type settings struct {
 	BMP_Sensor_Enabled   bool
 	IMU_Sensor_Enabled   bool
 	Stratus_Enabled      bool
+	LimitTraffic_Enabled bool
 	FakeTrafficCount     int
 	NetworkOutputs       []networkConnection
 	SerialOutputs        map[string]serialConnection
@@ -1444,6 +1445,7 @@ func defaultSettings() {
 	globalSettings.RadarLimits = 2000
 	globalSettings.RadarRange = 10
 	globalSettings.AltitudeOffset = 0
+	globalSettings.LimitTraffic_Enabled = false
 
 	globalSettings.PWMDutyMin = 0
 }
