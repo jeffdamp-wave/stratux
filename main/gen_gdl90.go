@@ -1340,7 +1340,7 @@ type settings struct {
 	RadarRange           int
 
 	OGNAddr              string
-	OGNAddrType          int
+	OGNAddrType          int            // 0=random, 1=ICAO, 2=Flarm, 3=OGN
 	OGNAcftType          int
 	OGNPilot             string
 	OGNReg               string
@@ -1403,6 +1403,8 @@ type status struct {
 	OGN_noise_db                               float32
 	OGN_gain_db                                float32
 	OGN_tx_enabled                             bool // If ogn-rx-eu uses a local tx module for transmission
+
+	OGNPrevRandomAddr                          string    // when OGN is in random stealth mode, it's ID changes randomly - keep the previous one so we can filter properly
 }
 
 var globalSettings settings
