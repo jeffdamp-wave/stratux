@@ -405,12 +405,12 @@ func sendTrafficUpdates() {
 					highestAlarmTraffic = ti
 				}
 
-				var trafficCallsign string
-				if len(ti.Tail) > 0 {
-					trafficCallsign = ti.Tail
-				} else {
-					trafficCallsign = fmt.Sprintf("%X_%d", ti.Icao_addr, ti.Squawk)
-				}
+				// var trafficCallsign string
+				// if len(ti.Tail) > 0 {
+				// 	trafficCallsign = ti.Tail
+				// } else {
+				// 	trafficCallsign = fmt.Sprintf("%X_%d", ti.Icao_addr, ti.Squawk)
+				// }
 
 				// if !globalSettings.Stratus_Enabled {
 				// 	// send traffic message to X-Plane
