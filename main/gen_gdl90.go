@@ -115,7 +115,7 @@ const (
 	STRATUS_OWNER_RATE   = 50 * time.Millisecond // 5hz 
 	STRATUX_TRAFFIC_RATE = 900 * time.Millisecond //DEFAULT_MSG_RATE
 	// 5Hz seems to be the minimum to keep traffic from blinking out when emulating stratus
-	STRATUS_TRAFFIC_RATE = 900 * time.Millisecond
+	STRATUS_TRAFFIC_RATE = DEFAULT_MSG_RATE //900 * time.Millisecond
 	STRATUX_AHRS_RATE    = 50 * time.Millisecond
 	STRATUS_AHRS_RATE    = 50 * time.Millisecond
 )
