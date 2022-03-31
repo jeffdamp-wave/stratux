@@ -111,9 +111,9 @@ const (
 	DEFAULT_MSG_RATE     = time.Second  // 1Hz
 	STRATUX_STATUS_RATE  = DEFAULT_MSG_RATE
 	STRATUS_STATUS_RATE  = DEFAULT_MSG_RATE //800 * time.Millisecond
-	STRATUX_OWNER_RATE   = DEFAULT_MSG_RATE
-	STRATUS_OWNER_RATE   = 200 * time.Millisecond // 5hz 
-	STRATUX_TRAFFIC_RATE = DEFAULT_MSG_RATE
+	STRATUX_OWNER_RATE   = 50 * time.Millisecond // 20hz for GP
+	STRATUS_OWNER_RATE   = 100 * time.Millisecond // 5hz 
+	STRATUX_TRAFFIC_RATE = 900 * time.Millisecond 
 	// 5Hz seems to be the minimum to keep traffic from blinking out when emulating stratus
 	STRATUS_TRAFFIC_RATE = 900 * time.Millisecond
 	STRATUX_AHRS_RATE    = 50 * time.Millisecond
@@ -464,7 +464,7 @@ func sendOwnshipReport() bool {
 	if globalSettings.Stratus_Enabled {
 		timeout = STRATUS_OWNER_RATE
 	} else {
-		sendXPlane(createXPlaneGpsMsg(lat, lon, mySituation.GPSAltitudeMSL, groundTrack, float32(gdSpeed)), timeout, 0)
+		//sendXPlane(createXPlaneGpsMsg(lat, lon, mySituation.GPSAltitudeMSL, groundTrack, float32(gdSpeed)), timeout, 0)
 	}
 
 	sendGDL90(prepareMessage(msg), timeout, -1)
@@ -852,8 +852,6 @@ func sendAllStatusInfo() {
 		sendGDL90(makeStratuxStatus(), timeout, 0) // see if this breaks the web UI
 	}
 	sendGDL90(makeFFIDMessage(), timeout, -1)
-	// Geo ownership is on a slower update path then ownership
-	sendOwnshipGeometricAltitudeReport()
 }
 
 
@@ -886,6 +884,8 @@ func sendAllHeartbeatInfo() {
 
 func sendAllOwnshipInfo() {
 	sendOwnshipReport()
+	// Sending the GEO ownship at a higher rate smooths out GP synth vision
+	sendOwnshipGeometricAltitudeReport()
 }
 
 func sendAllFLARMInfo() {

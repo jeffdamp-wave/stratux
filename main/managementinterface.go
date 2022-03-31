@@ -659,9 +659,7 @@ func handleCageAHRS(w http.ResponseWriter, r *http.Request) {
 
 	// For an OPTION method request, we return header without processing.
 	// This ensures we are recognized as supporting cross-domain AJAX REST calls.
-	if r.Method == "POST" {
-		CageAHRS()
-	}
+	CageAHRS()
 }
 
 func handleCalibrateAHRS(w http.ResponseWriter, r *http.Request) {
@@ -674,9 +672,8 @@ func handleCalibrateAHRS(w http.ResponseWriter, r *http.Request) {
 
 	// For an OPTION method request, we return header without processing.
 	// This ensures we are recognized as supporting cross-domain AJAX REST calls.
-	if r.Method == "POST" {
-		CalibrateAHRS()
-	}
+	CalibrateAHRS()
+	CageAHRS()
 }
 
 func handleResetGMeter(w http.ResponseWriter, r *http.Request) {
@@ -689,9 +686,7 @@ func handleResetGMeter(w http.ResponseWriter, r *http.Request) {
 
 	// For an OPTION method request, we return header without processing.
 	// This ensures we are recognized as supporting cross-domain AJAX REST calls.
-	if r.Method == "POST" {
-		ResetAHRSGLoad()
-	}
+	ResetAHRSGLoad()
 }
 
 func doRestartApp() {

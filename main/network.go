@@ -463,7 +463,7 @@ func sendGDL90(msg []byte, maxAge time.Duration, priority int32) {
 }
 
 func sendXPlane(msg []byte, maxAge time.Duration, priority int32) {
-	sendMsg(msg, NETWORK_POSITION_FFSIM, maxAge, priority)
+	// sendMsg(msg, NETWORK_POSITION_FFSIM, maxAge, priority)
 }
 
 func sendNetFLARM(msg string, maxAge time.Duration, priority int32) {
