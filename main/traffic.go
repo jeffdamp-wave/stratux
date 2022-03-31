@@ -412,10 +412,10 @@ func sendTrafficUpdates() {
 					trafficCallsign = fmt.Sprintf("%X_%d", ti.Icao_addr, ti.Squawk)
 				}
 
-				if !globalSettings.Stratus_Enabled {
-					// send traffic message to X-Plane
-					sendXPlane(createXPlaneTrafficMsg(ti.Icao_addr, ti.Lat, ti.Lng, ti.Alt, uint32(ti.Speed), int32(ti.Vvel), ti.OnGround, uint32(ti.Track), trafficCallsign), timeout, priority)
-				}
+				// if !globalSettings.Stratus_Enabled {
+				// 	// send traffic message to X-Plane
+				// 	sendXPlane(createXPlaneTrafficMsg(ti.Icao_addr, ti.Lat, ti.Lng, ti.Alt, uint32(ti.Speed), int32(ti.Vvel), ti.OnGround, uint32(ti.Track), trafficCallsign), timeout, priority)
+				// }
 				// TODO decide if we sendFLARM when in Stratus mode
 				if validFLARM {
 					sendNetFLARM(thisMsgFLARM, timeout, priority)

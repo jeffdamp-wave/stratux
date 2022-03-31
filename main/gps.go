@@ -1907,15 +1907,12 @@ func gpsSerialReader() {
 }
 
 func sendAHRSSimReport() {
-	if globalSettings.Stratus_Enabled {
-		return
-	}
+	// if globalSettings.Stratus_Enabled {
+	// 	return
+	// }
 	
-	if !globalSettings.Stratus_Enabled {
-		return
-	}
-	msg := createXPlaneAttitudeMsg(float32(mySituation.AHRSGyroHeading), float32(mySituation.AHRSPitch), float32(mySituation.AHRSRoll))
-	sendXPlane(msg, 100 * time.Millisecond, 1)
+	// msg := createXPlaneAttitudeMsg(float32(mySituation.AHRSGyroHeading), float32(mySituation.AHRSPitch), float32(mySituation.AHRSRoll))
+	// sendXPlane(msg, 100 * time.Millisecond, 1)
 }
 
 /*
@@ -1927,9 +1924,6 @@ func sendAHRSSimReport() {
 */
 
 func sendFFAHRSMessage() {
-	if !globalSettings.Stratus_Enabled {
-		return
-	}
 	msg := make([]byte, 12)
 	msg[0] = 0x65 // Message type "ForeFlight".
 	msg[1] = 0x01 // AHRS message identifier.
