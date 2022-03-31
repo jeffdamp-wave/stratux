@@ -98,7 +98,7 @@ func (conn *networkConnection) GetDesiredPacketSize() int {
 	if globalSettings.Stratus_Enabled {
 		return 1
 	}
-	return 1024
+	return 1 // returning 1 for now to test GP functionality 1024
 }
 
 func (conn *networkConnection) OnError(err error) {
