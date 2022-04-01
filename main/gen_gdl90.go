@@ -468,7 +468,7 @@ func sendOwnshipReport() bool {
 	}
 
 	if (mySituation.GPSPositionSampleRate > 0 && mySituation.GPSPositionSampleRate < timeout) {
-		timeout = int64((1000 / mySituation.GPSPositionSampleRate) * time.Millisecond)
+		timeout = int64(1000 / mySituation.GPSPositionSampleRate) * time.Millisecond
 	}
 
 	sendGDL90(prepareMessage(msg), timeout, -1)
@@ -499,7 +499,7 @@ func sendOwnshipGeometricAltitudeReport() bool {
 	}
 
 	if (mySituation.GPSPositionSampleRate > 0 && mySituation.GPSPositionSampleRate < timeout) {
-		timeout = int64((1000 / mySituation.GPSPositionSampleRate) * time.Millisecond)
+		timeout = int64(1000 / mySituation.GPSPositionSampleRate) * time.Millisecond
 	}
 
 	sendGDL90(prepareMessage(msg), timeout, -1)
@@ -973,7 +973,7 @@ func heartBeatSender() {
 				}
 
 				if (mySituation.GPSPositionSampleRate > 0 && mySituation.GPSPositionSampleRate < ownerRate) {
-					ownerRate = int64((1000 / mySituation.GPSPositionSampleRate) * time.Millisecond)
+					ownerRate = int64(1000 / mySituation.GPSPositionSampleRate) * time.Millisecond
 				}
 
 				ownerTimer = time.NewTicker(ownerRate)
