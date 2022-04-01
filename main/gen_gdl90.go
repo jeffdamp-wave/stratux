@@ -111,13 +111,13 @@ const (
 	DEFAULT_MSG_RATE     = time.Second  // 1Hz
 	STRATUX_STATUS_RATE  = DEFAULT_MSG_RATE
 	STRATUS_STATUS_RATE  = DEFAULT_MSG_RATE //800 * time.Millisecond
-	STRATUX_OWNER_RATE   = 100 * time.Millisecond // 20hz for GP
-	STRATUS_OWNER_RATE   = 100 * time.Millisecond // 5hz 
+	STRATUX_OWNER_RATE   = 50 * time.Millisecond // 20hz for GP
+	STRATUS_OWNER_RATE   = 50 * time.Millisecond // 5hz 
 	STRATUX_TRAFFIC_RATE = 900 * time.Millisecond 
 	// 5Hz seems to be the minimum to keep traffic from blinking out when emulating stratus
 	STRATUS_TRAFFIC_RATE = 900 * time.Millisecond
-	STRATUX_AHRS_RATE    = 100 * time.Millisecond
-	STRATUS_AHRS_RATE    = 100 * time.Millisecond
+	STRATUX_AHRS_RATE    = 50 * time.Millisecond
+	STRATUS_AHRS_RATE    = 50 * time.Millisecond
 )
 
 var logFileHandle *os.File
@@ -889,8 +889,6 @@ func sendAllFLARMInfo() {
 }
 
 func heartBeatSender() {
-	
-	lastState := globalSettings.Stratus_Enabled
 	ownerRate := STRATUX_OWNER_RATE
 	trafficRate := STRATUX_TRAFFIC_RATE
 	statusRate := STRATUX_STATUS_RATE
@@ -901,6 +899,8 @@ func heartBeatSender() {
 		statusRate = STRATUS_STATUS_RATE
 	}
 	
+	lastSumRate := ownerRate + trafficRate + statusRate
+
 	timer := time.NewTicker(DEFAULT_MSG_RATE)
 	timerMessageStats := time.NewTicker(2 * time.Second)
 	ownerTimer := time.NewTicker(ownerRate)
@@ -938,28 +938,29 @@ func heartBeatSender() {
 			// Save a bit of CPU by not pruning the message log every 1 second.
 			updateMessageStats()
 
-			if lastState != globalSettings.Stratus_Enabled {
-				lastState = globalSettings.Stratus_Enabled
-				
-				if globalSettings.Stratus_Enabled {
-					ownerRate = STRATUS_OWNER_RATE
-					trafficRate = STRATUS_TRAFFIC_RATE
-				} else {
-					ownerRate = STRATUX_OWNER_RATE
-					trafficRate = STRATUX_TRAFFIC_RATE
-				}
+			if globalSettings.Stratus_Enabled {
+				ownerRate = STRATUS_OWNER_RATE
+				trafficRate = STRATUS_TRAFFIC_RATE
+				statusRate = STRATUS_STATUS_RATE
+			} else {
+				ownerRate = STRATUX_OWNER_RATE
+				trafficRate = STRATUX_TRAFFIC_RATE
+				statusRate := STRATUX_STATUS_RATE
+			}
 
-				// Adjust the owner rate messages to match the rate of the GPS data
-				if mySituation.GPSPositionSampleRate > 0 { 
-					delay := time.Duration(1000 / mySituation.GPSPositionSampleRate) * time.Millisecond
-					if delay > ownerRate {
-						ownerRate = delay
-					}
+			// Adjust the owner rate messages to match the rate of the GPS data
+			if mySituation.GPSPositionSampleRate > 0 { 
+				delay := time.Duration(1000 / mySituation.GPSPositionSampleRate) * time.Millisecond
+				if delay > ownerRate {
+					ownerRate = delay
 				}
+			}
 
+			if lastSumRate != (ownerRate + trafficRate + statusRate) {
+				lastSumRate = ownerRate + trafficRate + statusRate
 				ownerTimer = time.NewTicker(ownerRate)
 				trafficTimer = time.NewTicker(trafficRate)
-			}
+				statusTimer := time.NewTicker(statusRate)
 		}
 	}
 }
