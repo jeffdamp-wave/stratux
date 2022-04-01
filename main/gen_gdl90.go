@@ -945,7 +945,7 @@ func heartBeatSender() {
 			} else {
 				ownerRate = STRATUX_OWNER_RATE
 				trafficRate = STRATUX_TRAFFIC_RATE
-				statusRate := STRATUX_STATUS_RATE
+				statusRate = STRATUX_STATUS_RATE
 			}
 
 			// Adjust the owner rate messages to match the rate of the GPS data
@@ -960,7 +960,8 @@ func heartBeatSender() {
 				lastSumRate = ownerRate + trafficRate + statusRate
 				ownerTimer = time.NewTicker(ownerRate)
 				trafficTimer = time.NewTicker(trafficRate)
-				statusTimer := time.NewTicker(statusRate)
+				statusTimer = time.NewTicker(statusRate)
+			}
 		}
 	}
 }
