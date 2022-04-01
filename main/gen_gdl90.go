@@ -302,7 +302,7 @@ func isDetectedOwnshipValid() bool {
 	return stratuxClock.Since(OwnshipTrafficInfo.Last_seen).Seconds() < 1
 }
 
-func sendOwnshipReport() bool {
+func sendOwnshipReport(maxAge time.Duration) bool {
 	gpsValid := isGPSValid()
 	selfOwnshipValid := isDetectedOwnshipValid()
 	if !gpsValid && !selfOwnshipValid {
@@ -460,22 +460,11 @@ func sendOwnshipReport() bool {
 		msg[19+i] = myReg[i]
 	}
 
-	timeout := STRATUX_OWNER_RATE
-	if globalSettings.Stratus_Enabled {
-		timeout = STRATUS_OWNER_RATE
-	} else {
-		//sendXPlane(createXPlaneGpsMsg(lat, lon, mySituation.GPSAltitudeMSL, groundTrack, float32(gdSpeed)), timeout, 0)
-	}
-
-	if (mySituation.GPSPositionSampleRate > 0 && mySituation.GPSPositionSampleRate < float64(timeout)) {
-		timeout = time.Duration(1000 / mySituation.GPSPositionSampleRate) * time.Millisecond
-	}
-
-	sendGDL90(prepareMessage(msg), timeout, -1)
+	sendGDL90(prepareMessage(msg), maxAge, -1)
 	return true
 }
 
-func sendOwnshipGeometricAltitudeReport() bool {
+func sendOwnshipGeometricAltitudeReport(maxAge time.Duration) bool {
 	if !isGPSValid() {
 		return false
 	}
@@ -493,16 +482,7 @@ func sendOwnshipGeometricAltitudeReport() bool {
 	msg[3] = 0x00
 	msg[4] = 0x0A
 	
-	timeout := STRATUX_OWNER_RATE
-	if globalSettings.Stratus_Enabled {
-		timeout = STRATUS_OWNER_RATE
-	}
-
-	if (mySituation.GPSPositionSampleRate > 0 && mySituation.GPSPositionSampleRate < float64(timeout)) {
-		timeout = time.Duration(1000 / mySituation.GPSPositionSampleRate) * time.Millisecond
-	}
-
-	sendGDL90(prepareMessage(msg), timeout, -1)
+	sendGDL90(prepareMessage(msg), maxAge, -1)
 	return true
 }
 
@@ -855,20 +835,17 @@ func blinkStatusLED() {
 	}
 }
 
-func sendAllStatusInfo() {
-	timeout := STRATUX_STATUS_RATE
-
+func sendAllStatusInfo(maxAge time.Duration) {
 	if globalSettings.Stratus_Enabled {
-		timeout = STRATUS_STATUS_RATE
-		sendGDL90(makeStratusStatus(), timeout, -1)
+		sendGDL90(makeStratusStatus(), maxAge, -1)
 	}else {
-		sendGDL90(makeStratuxStatus(), timeout, 0) // see if this breaks the web UI
+		sendGDL90(makeStratuxStatus(), maxAge, 0) // see if this breaks the web UI
 	}
-	sendGDL90(makeFFIDMessage(), timeout, -1)
+	sendGDL90(makeFFIDMessage(), maxAge, -1)
 }
 
 
-func sendTrafficReport() {
+func sendTrafficReport(maxAge time.Duration) {
 	// --- debug code: traffic demo ---
 	// Only accessable under dev settings
 	if globalSettings.FakeTrafficCount > 0 {
@@ -885,7 +862,7 @@ func sendTrafficReport() {
 		}
 	}
 	// ---end traffic demo code ---
-	sendTrafficUpdates()
+	sendTrafficUpdates(maxAge)
 }
 
 func sendAllHeartbeatInfo() {
@@ -895,10 +872,10 @@ func sendAllHeartbeatInfo() {
 	}
 }
 
-func sendAllOwnshipInfo() {
-	sendOwnshipReport()
+func sendAllOwnshipInfo(maxAge time.Duration) {
+	sendOwnshipReport(maxAge)
 	// Sending the GEO ownship at a higher rate smooths out GP synth vision
-	sendOwnshipGeometricAltitudeReport()
+	sendOwnshipGeometricAltitudeReport(maxAge)
 }
 
 func sendAllFLARMInfo() {
@@ -934,11 +911,11 @@ func heartBeatSender() {
 	for {
 		select {
 		case <-statusTimer.C:
-			sendAllStatusInfo()
+			sendAllStatusInfo(statusRate)
 		case <-ownerTimer.C:
-			sendAllOwnshipInfo()
+			sendAllOwnshipInfo(ownerRate)
 		case <- trafficTimer.C:
-			sendTrafficReport()
+			sendTrafficReport(trafficRate)
 		case <-timer.C:
 			// Green LED - always on during normal operation.
 			//  Blinking when there is a critical system error (and Stratux is still running).
@@ -972,8 +949,12 @@ func heartBeatSender() {
 					trafficRate = STRATUX_TRAFFIC_RATE
 				}
 
-				if (mySituation.GPSPositionSampleRate > 0 && mySituation.GPSPositionSampleRate < float64(ownerRate)) {
-					ownerRate = time.Duration(1000 / mySituation.GPSPositionSampleRate) * time.Millisecond
+				// Adjust the owner rate messages to match the rate of the GPS data
+				if mySituation.GPSPositionSampleRate > 0 { 
+					delay := time.Duration(1000 / mySituation.GPSPositionSampleRate) * time.Millisecond
+					if delay > ownerRate {
+						ownerRate = delay
+					}
 				}
 
 				ownerTimer = time.NewTicker(ownerRate)
@@ -1596,17 +1577,8 @@ func printStats() {
 		log.Printf(" - UAT/min %s/%s [maxSS=%.02f%%], ES/min %s/%s, Total traffic targets tracked=%s", humanize.Comma(int64(globalStatus.UAT_messages_last_minute)), humanize.Comma(int64(globalStatus.UAT_messages_max)), float64(maxSignalStrength)/10.0, humanize.Comma(int64(globalStatus.ES_messages_last_minute)), humanize.Comma(int64(globalStatus.ES_messages_max)), humanize.Comma(int64(len(seenTraffic))))
 		log.Printf(" - Network data messages sent: %d total.  Network data bytes sent: %d total.\n", globalStatus.NetworkDataMessagesSent, globalStatus.NetworkDataBytesSent)
 		if globalSettings.GPS_Enabled {
-			timeout := time.Millisecond * 500
-			delay := time.Microsecond * 0
-			if mySituation.GPSPositionSampleRate > 0 { 
-				delay = time.Duration(1000 / mySituation.GPSPositionSampleRate)
-				if delay < timeout {
-					timeout = delay * time.Millisecond
-				}
-			}
-
 			log.Printf(" - Last GPS fix: %s, GPS solution type: %d using %d satellites (%d/%d seen/tracked), NACp: %d, est accuracy %.02f m\n", stratuxClock.HumanizeTime(mySituation.GPSLastFixLocalTime), mySituation.GPSFixQuality, mySituation.GPSSatellites, mySituation.GPSSatellitesSeen, mySituation.GPSSatellitesTracked, mySituation.GPSNACp, mySituation.GPSHorizontalAccuracy)
-			log.Printf(" - GPS vertical velocity: %.02f ft/sec; GPS vertical accuracy: %v m Sample Rate (%.1f Hz) Timeout (%d ms) delay (%d)\n", mySituation.GPSVerticalSpeed, mySituation.GPSVerticalAccuracy, mySituation.GPSPositionSampleRate, timeout, delay)
+			log.Printf(" - GPS vertical velocity: %.02f ft/sec; GPS vertical accuracy: %v m Sample Rate (%.1f Hz)\n", mySituation.GPSVerticalSpeed, mySituation.GPSVerticalAccuracy, mySituation.GPSPositionSampleRate)
 		}
 		log.Printf(" - Mode-S Distance factors (<5000, <10000, >10000): %f, %f, %f", estimatedDistFactors[0], estimatedDistFactors[1], estimatedDistFactors[2])
 		sensorsOutput := make([]string, 0)
