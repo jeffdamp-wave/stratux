@@ -467,8 +467,8 @@ func sendOwnshipReport() bool {
 		//sendXPlane(createXPlaneGpsMsg(lat, lon, mySituation.GPSAltitudeMSL, groundTrack, float32(gdSpeed)), timeout, 0)
 	}
 
-	if (mySituation.GPSPositionSampleRate > 0 && mySituation.GPSPositionSampleRate < timeout) {
-		timeout = int64(1000 / mySituation.GPSPositionSampleRate) * time.Millisecond
+	if (mySituation.GPSPositionSampleRate > 0 && mySituation.GPSPositionSampleRate < float64(timeout)) {
+		timeout = int64(1000 / mySituation.GPSPositionSampleRate) * int64(time.Millisecond)
 	}
 
 	sendGDL90(prepareMessage(msg), timeout, -1)
@@ -498,8 +498,8 @@ func sendOwnshipGeometricAltitudeReport() bool {
 		timeout = STRATUS_OWNER_RATE
 	}
 
-	if (mySituation.GPSPositionSampleRate > 0 && mySituation.GPSPositionSampleRate < timeout) {
-		timeout = int64(1000 / mySituation.GPSPositionSampleRate) * time.Millisecond
+	if (mySituation.GPSPositionSampleRate > 0 && mySituation.GPSPositionSampleRate < float64(timeout)) {
+		timeout = int64(1000 / mySituation.GPSPositionSampleRate) * int64(time.Millisecond)
 	}
 
 	sendGDL90(prepareMessage(msg), timeout, -1)
@@ -972,8 +972,8 @@ func heartBeatSender() {
 					trafficRate = STRATUX_TRAFFIC_RATE
 				}
 
-				if (mySituation.GPSPositionSampleRate > 0 && mySituation.GPSPositionSampleRate < ownerRate) {
-					ownerRate = int64(1000 / mySituation.GPSPositionSampleRate) * time.Millisecond
+				if (mySituation.GPSPositionSampleRate > 0 && mySituation.GPSPositionSampleRate < float64(ownerRate)) {
+					ownerRate = int64(1000 / mySituation.GPSPositionSampleRate) * int64(time.Millisecond)
 				}
 
 				ownerTimer = time.NewTicker(ownerRate)
