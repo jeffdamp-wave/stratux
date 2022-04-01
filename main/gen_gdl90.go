@@ -1598,9 +1598,9 @@ func printStats() {
 		if globalSettings.GPS_Enabled {
 			timeout := time.Millisecond * 500
 			delay := time.Microsecond * 0
-			if (mySituation.GPSPositionSampleRate > 0) {} 
+			if mySituation.GPSPositionSampleRate > 0 { 
 				delay = time.Duration(1000 / mySituation.GPSPositionSampleRate)
-				if (delay < timeout) {
+				if delay < timeout {
 					timeout = delay * time.Millisecond
 				}
 			}
