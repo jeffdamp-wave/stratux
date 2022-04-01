@@ -1596,8 +1596,13 @@ func printStats() {
 		log.Printf(" - UAT/min %s/%s [maxSS=%.02f%%], ES/min %s/%s, Total traffic targets tracked=%s", humanize.Comma(int64(globalStatus.UAT_messages_last_minute)), humanize.Comma(int64(globalStatus.UAT_messages_max)), float64(maxSignalStrength)/10.0, humanize.Comma(int64(globalStatus.ES_messages_last_minute)), humanize.Comma(int64(globalStatus.ES_messages_max)), humanize.Comma(int64(len(seenTraffic))))
 		log.Printf(" - Network data messages sent: %d total.  Network data bytes sent: %d total.\n", globalStatus.NetworkDataMessagesSent, globalStatus.NetworkDataBytesSent)
 		if globalSettings.GPS_Enabled {
+			timeout := time.Millisecond * 500
+			if (mySituation.GPSPositionSampleRate > 0 && mySituation.GPSPositionSampleRate < float64(timeout)) {
+				timeout = time.Duration(1000 / mySituation.GPSPositionSampleRate) * time.Millisecond
+			}
+
 			log.Printf(" - Last GPS fix: %s, GPS solution type: %d using %d satellites (%d/%d seen/tracked), NACp: %d, est accuracy %.02f m\n", stratuxClock.HumanizeTime(mySituation.GPSLastFixLocalTime), mySituation.GPSFixQuality, mySituation.GPSSatellites, mySituation.GPSSatellitesSeen, mySituation.GPSSatellitesTracked, mySituation.GPSNACp, mySituation.GPSHorizontalAccuracy)
-			log.Printf(" - GPS vertical velocity: %.02f ft/sec; GPS vertical accuracy: %v m Sample Rate(%.1f Hz)\n", mySituation.GPSVerticalSpeed, mySituation.GPSVerticalAccuracy, mySituation.GPSPositionSampleRate)
+			log.Printf(" - GPS vertical velocity: %.02f ft/sec; GPS vertical accuracy: %v m Sample Rate (%.1f Hz) Timeout (%d ms)\n", mySituation.GPSVerticalSpeed, mySituation.GPSVerticalAccuracy, mySituation.GPSPositionSampleRate, timeout)
 		}
 		log.Printf(" - Mode-S Distance factors (<5000, <10000, >10000): %f, %f, %f", estimatedDistFactors[0], estimatedDistFactors[1], estimatedDistFactors[2])
 		sensorsOutput := make([]string, 0)
