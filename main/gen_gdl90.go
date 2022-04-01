@@ -467,6 +467,10 @@ func sendOwnshipReport() bool {
 		//sendXPlane(createXPlaneGpsMsg(lat, lon, mySituation.GPSAltitudeMSL, groundTrack, float32(gdSpeed)), timeout, 0)
 	}
 
+	if (mySituation.GPSPositionSampleRate > 0 && mySituation.GPSPositionSampleRate < timeout) {
+		timeout = int64((1000 / mySituation.GPSPositionSampleRate) * time.Millisecond)
+	}
+
 	sendGDL90(prepareMessage(msg), timeout, -1)
 	return true
 }
@@ -488,8 +492,17 @@ func sendOwnshipGeometricAltitudeReport() bool {
 	//TODO: "Figure of Merit". 0x7FFF "Not available".
 	msg[3] = 0x00
 	msg[4] = 0x0A
+	
+	timeout := STRATUX_OWNER_RATE
+	if globalSettings.Stratus_Enabled {
+		timeout = STRATUS_OWNER_RATE
+	}
 
-	sendGDL90(prepareMessage(msg), DEFAULT_MSG_RATE, -1)
+	if (mySituation.GPSPositionSampleRate > 0 && mySituation.GPSPositionSampleRate < timeout) {
+		timeout = int64((1000 / mySituation.GPSPositionSampleRate) * time.Millisecond)
+	}
+
+	sendGDL90(prepareMessage(msg), timeout, -1)
 	return true
 }
 
@@ -957,6 +970,10 @@ func heartBeatSender() {
 				} else {
 					ownerRate = STRATUX_OWNER_RATE
 					trafficRate = STRATUX_TRAFFIC_RATE
+				}
+
+				if (mySituation.GPSPositionSampleRate > 0 && mySituation.GPSPositionSampleRate < ownerRate) {
+					ownerRate = int64((1000 / mySituation.GPSPositionSampleRate) * time.Millisecond)
 				}
 
 				ownerTimer = time.NewTicker(ownerRate)
