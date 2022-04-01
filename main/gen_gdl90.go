@@ -557,8 +557,8 @@ func makeStratuxStatus() []byte {
 		b_str = mib_str[strings.Index(mib_str, "rc")+2:]
 	} else if strings.Index(mib_str, "r") != -1 {
 		tp = 2
-		mi_str = mib_str[0:strings.Index(mib_str, "J")]
-		b_str = mib_str[strings.Index(mib_str, "J")+1:]
+		mi_str = mib_str[0:strings.Index(mib_str, "r")]
+		b_str = mib_str[strings.Index(mib_str, "r")+1:]
 	} else if strings.Index(mib_str, "b") != -1 {
 		tp = 1
 		mi_str = mib_str[0:strings.Index(mib_str, "b")]
