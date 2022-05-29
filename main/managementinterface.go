@@ -366,6 +366,8 @@ func handleSettingsSetRequest(w http.ResponseWriter, r *http.Request) {
 						globalSettings.LimitTraffic_Enabled = val.(bool)
 					case "FakeTrafficCount":
 						globalSettings.FakeTrafficCount = int(val.(float64))
+					case "OGNI2CTXEnabled":
+						globalSettings.OGNI2CTXEnabled = val.(bool)
 					case "GPS_Enabled":
 						globalSettings.GPS_Enabled = val.(bool)
 					case "IMU_Sensor_Enabled":
