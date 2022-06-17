@@ -112,7 +112,7 @@ const (
 	STRATUX_STATUS_RATE  = DEFAULT_MSG_RATE
 	STRATUS_STATUS_RATE  = DEFAULT_MSG_RATE //800 * time.Millisecond
 	STRATUX_OWNER_RATE   = 50 * time.Millisecond // 20hz for GP
-	STRATUS_OWNER_RATE   = 100 * time.Millisecond // 5hz 
+	STRATUS_OWNER_RATE   = 50 * time.Millisecond // 5hz 
 	STRATUX_TRAFFIC_RATE = 900 * time.Millisecond 
 	// 5Hz seems to be the minimum to keep traffic from blinking out when emulating stratus
 	STRATUS_TRAFFIC_RATE = 900 * time.Millisecond
@@ -121,7 +121,6 @@ const (
 )
 
 var logFileHandle *os.File
-var usage *du.DiskUsage
 
 var maxSignalStrength int
 
@@ -302,7 +301,7 @@ func isDetectedOwnshipValid() bool {
 	return stratuxClock.Since(OwnshipTrafficInfo.Last_seen).Seconds() < 1
 }
 
-func sendOwnshipReport() bool {
+func sendOwnshipReport(maxAge time.Duration) bool {
 	gpsValid := isGPSValid()
 	selfOwnshipValid := isDetectedOwnshipValid()
 	if !gpsValid && !selfOwnshipValid {
@@ -460,18 +459,11 @@ func sendOwnshipReport() bool {
 		msg[19+i] = myReg[i]
 	}
 
-	timeout := STRATUX_OWNER_RATE
-	if globalSettings.Stratus_Enabled {
-		timeout = STRATUS_OWNER_RATE
-	} else {
-		//sendXPlane(createXPlaneGpsMsg(lat, lon, mySituation.GPSAltitudeMSL, groundTrack, float32(gdSpeed)), timeout, 0)
-	}
-
-	sendGDL90(prepareMessage(msg), timeout, -1)
+	sendGDL90(prepareMessage(msg), maxAge, -1)
 	return true
 }
 
-func sendOwnshipGeometricAltitudeReport() bool {
+func sendOwnshipGeometricAltitudeReport(maxAge time.Duration) bool {
 	if !isGPSValid() {
 		return false
 	}
@@ -488,8 +480,8 @@ func sendOwnshipGeometricAltitudeReport() bool {
 	//TODO: "Figure of Merit". 0x7FFF "Not available".
 	msg[3] = 0x00
 	msg[4] = 0x0A
-
-	sendGDL90(prepareMessage(msg), DEFAULT_MSG_RATE, -1)
+	
+	sendGDL90(prepareMessage(msg), maxAge, -1)
 	return true
 }
 
@@ -842,20 +834,17 @@ func blinkStatusLED() {
 	}
 }
 
-func sendAllStatusInfo() {
-	timeout := STRATUX_STATUS_RATE
-
+func sendAllStatusInfo(maxAge time.Duration) {
 	if globalSettings.Stratus_Enabled {
-		timeout = STRATUS_STATUS_RATE
-		sendGDL90(makeStratusStatus(), timeout, -1)
+		sendGDL90(makeStratusStatus(), maxAge, -1)
 	}else {
-		sendGDL90(makeStratuxStatus(), timeout, 0) // see if this breaks the web UI
+		sendGDL90(makeStratuxStatus(), maxAge, 0) // see if this breaks the web UI
 	}
-	sendGDL90(makeFFIDMessage(), timeout, -1)
+	sendGDL90(makeFFIDMessage(), maxAge, -1)
 }
 
 
-func sendTrafficReport() {
+func sendTrafficReport(maxAge time.Duration) {
 	// --- debug code: traffic demo ---
 	// Only accessable under dev settings
 	if globalSettings.FakeTrafficCount > 0 {
@@ -872,7 +861,7 @@ func sendTrafficReport() {
 		}
 	}
 	// ---end traffic demo code ---
-	sendTrafficUpdates()
+	sendTrafficUpdates(maxAge)
 }
 
 func sendAllHeartbeatInfo() {
@@ -882,10 +871,10 @@ func sendAllHeartbeatInfo() {
 	}
 }
 
-func sendAllOwnshipInfo() {
-	sendOwnshipReport()
+func sendAllOwnshipInfo(maxAge time.Duration) {
+	sendOwnshipReport(maxAge)
 	// Sending the GEO ownship at a higher rate smooths out GP synth vision
-	sendOwnshipGeometricAltitudeReport()
+	sendOwnshipGeometricAltitudeReport(maxAge)
 }
 
 func sendAllFLARMInfo() {
@@ -899,8 +888,6 @@ func sendAllFLARMInfo() {
 }
 
 func heartBeatSender() {
-	
-	lastState := globalSettings.Stratus_Enabled
 	ownerRate := STRATUX_OWNER_RATE
 	trafficRate := STRATUX_TRAFFIC_RATE
 	statusRate := STRATUX_STATUS_RATE
@@ -911,6 +898,8 @@ func heartBeatSender() {
 		statusRate = STRATUS_STATUS_RATE
 	}
 	
+	lastSumRate := ownerRate + trafficRate + statusRate
+
 	timer := time.NewTicker(DEFAULT_MSG_RATE)
 	timerMessageStats := time.NewTicker(2 * time.Second)
 	ownerTimer := time.NewTicker(ownerRate)
@@ -921,11 +910,11 @@ func heartBeatSender() {
 	for {
 		select {
 		case <-statusTimer.C:
-			sendAllStatusInfo()
+			sendAllStatusInfo(statusRate)
 		case <-ownerTimer.C:
-			sendAllOwnshipInfo()
+			sendAllOwnshipInfo(ownerRate)
 		case <- trafficTimer.C:
-			sendTrafficReport()
+			sendTrafficReport(trafficRate)
 		case <-timer.C:
 			// Green LED - always on during normal operation.
 			//  Blinking when there is a critical system error (and Stratux is still running).
@@ -948,19 +937,29 @@ func heartBeatSender() {
 			// Save a bit of CPU by not pruning the message log every 1 second.
 			updateMessageStats()
 
-			if lastState != globalSettings.Stratus_Enabled {
-				lastState = globalSettings.Stratus_Enabled
-				
-				if globalSettings.Stratus_Enabled {
-					ownerRate = STRATUS_OWNER_RATE
-					trafficRate = STRATUS_TRAFFIC_RATE
-				} else {
-					ownerRate = STRATUX_OWNER_RATE
-					trafficRate = STRATUX_TRAFFIC_RATE
-				}
+			if globalSettings.Stratus_Enabled {
+				ownerRate = STRATUS_OWNER_RATE
+				trafficRate = STRATUS_TRAFFIC_RATE
+				statusRate = STRATUS_STATUS_RATE
+			} else {
+				ownerRate = STRATUX_OWNER_RATE
+				trafficRate = STRATUX_TRAFFIC_RATE
+				statusRate = STRATUX_STATUS_RATE
+			}
 
+			// Adjust the owner rate messages to match the rate of the GPS data
+			if mySituation.GPSPositionSampleRate > 0 { 
+				delay := time.Duration(1000 / mySituation.GPSPositionSampleRate) * time.Millisecond
+				if delay > ownerRate {
+					ownerRate = delay
+				}
+			}
+
+			if lastSumRate != (ownerRate + trafficRate + statusRate) {
+				lastSumRate = ownerRate + trafficRate + statusRate
 				ownerTimer = time.NewTicker(ownerRate)
 				trafficTimer = time.NewTicker(trafficRate)
+				statusTimer = time.NewTicker(statusRate)
 			}
 		}
 	}
@@ -1096,7 +1095,7 @@ func updateGlobalStatus() {
 	globalStatus.Uptime = int64(stratuxClock.Milliseconds)
 	globalStatus.UptimeClock = stratuxClock.Time
 
-	usage = du.NewDiskUsage("/")
+	usage := du.NewDiskUsage("/")
 	globalStatus.DiskBytesFree = usage.Free()
 	fileInfo, err := logFileHandle.Stat()
 	if err == nil {
@@ -1339,6 +1338,7 @@ type settings struct {
 	RadarLimits          int
 	RadarRange           int
 
+	OGNI2CTXEnabled      bool
 	OGNAddr              string
 	OGNAddrType          int            // 0=random, 1=ICAO, 2=Flarm, 3=OGN
 	OGNAcftType          int
@@ -1450,6 +1450,8 @@ func defaultSettings() {
 	globalSettings.LimitTraffic_Enabled = false
 
 	globalSettings.PWMDutyMin = 0
+
+	globalSettings.OGNI2CTXEnabled = true
 }
 
 func readSettings() {
@@ -1573,6 +1575,8 @@ func printStats() {
 		<-statTimer.C
 		var memstats runtime.MemStats
 		runtime.ReadMemStats(&memstats)
+		usage := du.NewDiskUsage("/")
+
 		log.Printf("stats [started: %s]\n", humanize.RelTime(time.Time{}, stratuxClock.Time, "ago", "from now"))
 		log.Printf(" - Disk bytes used = %s (%.1f %%), Disk bytes free = %s (%.1f %%)\n", humanize.Bytes(usage.Used()), 100*usage.Usage(), humanize.Bytes(usage.Free()), 100*(1-usage.Usage()))
 		log.Printf(" - CPUTemp=%.02f [%.02f - %.02f] deg C, MemStats.Alloc=%s, MemStats.Sys=%s, totalNetworkMessagesSent=%s\n", globalStatus.CPUTemp, globalStatus.CPUTempMin, globalStatus.CPUTempMax, humanize.Bytes(uint64(memstats.Alloc)), humanize.Bytes(uint64(memstats.Sys)), humanize.Comma(int64(totalNetworkMessagesSent)))
@@ -1580,7 +1584,7 @@ func printStats() {
 		log.Printf(" - Network data messages sent: %d total.  Network data bytes sent: %d total.\n", globalStatus.NetworkDataMessagesSent, globalStatus.NetworkDataBytesSent)
 		if globalSettings.GPS_Enabled {
 			log.Printf(" - Last GPS fix: %s, GPS solution type: %d using %d satellites (%d/%d seen/tracked), NACp: %d, est accuracy %.02f m\n", stratuxClock.HumanizeTime(mySituation.GPSLastFixLocalTime), mySituation.GPSFixQuality, mySituation.GPSSatellites, mySituation.GPSSatellitesSeen, mySituation.GPSSatellitesTracked, mySituation.GPSNACp, mySituation.GPSHorizontalAccuracy)
-			log.Printf(" - GPS vertical velocity: %.02f ft/sec; GPS vertical accuracy: %v m\n", mySituation.GPSVerticalSpeed, mySituation.GPSVerticalAccuracy)
+			log.Printf(" - GPS vertical velocity: %.02f ft/sec; GPS vertical accuracy: %v m Sample Rate (%.1f Hz)\n", mySituation.GPSVerticalSpeed, mySituation.GPSVerticalAccuracy, mySituation.GPSPositionSampleRate)
 		}
 		log.Printf(" - Mode-S Distance factors (<5000, <10000, >10000): %f, %f, %f", estimatedDistFactors[0], estimatedDistFactors[1], estimatedDistFactors[2])
 		sensorsOutput := make([]string, 0)
@@ -1594,9 +1598,6 @@ func printStats() {
 			log.Printf("- " + strings.Join(sensorsOutput, ", ") + "\n")
 		}
 		// Check if we're using more than 95% of the free space. If so, throw a warning (only once).
-		if usage == nil { // happens after startup when in debugger
-			usage = du.NewDiskUsage("/")
-		}
 		if usage.Usage() > 0.95 {
 			addSingleSystemErrorf("disk-space", "Disk bytes used = %s (%.1f %%), Disk bytes free = %s (%.1f %%)", humanize.Bytes(usage.Used()), 100*usage.Usage(), humanize.Bytes(usage.Free()), 100*(1-usage.Usage()))
 		}

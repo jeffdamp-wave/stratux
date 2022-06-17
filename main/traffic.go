@@ -295,7 +295,7 @@ func isOwnshipTrafficInfo(ti TrafficInfo) (isOwnshipInfo bool, shouldIgnore bool
 	return
 }
 
-func sendTrafficUpdates() {
+func sendTrafficUpdates(maxAge time.Duration) {
 	trafficMutex.Lock()
 	defer trafficMutex.Unlock()
 	cleanupOldEntries()
@@ -394,11 +394,7 @@ func sendTrafficUpdates() {
 				OwnshipTrafficInfo = ti
 			} else if !shouldIgnore {
 				priority := computeTrafficPriority(&ti)
-				timeout := STRATUX_TRAFFIC_RATE
-				if globalSettings.Stratus_Enabled {
-					timeout = STRATUS_TRAFFIC_RATE
-				}
-				sendGDL90(makeTrafficReportMsg(ti), timeout, priority)
+				sendGDL90(makeTrafficReportMsg(ti), maxAge, priority)
 				thisMsgFLARM, validFLARM, alarmLevel := makeFlarmPFLAAString(ti)
 				if alarmLevel > highestAlarmLevel {
 					highestAlarmLevel = alarmLevel
@@ -418,7 +414,7 @@ func sendTrafficUpdates() {
 				// }
 				// TODO decide if we sendFLARM when in Stratus mode
 				if validFLARM {
-					sendNetFLARM(thisMsgFLARM, timeout, priority)
+					sendNetFLARM(thisMsgFLARM, maxAge, priority)
 				}
 			}
 		}
