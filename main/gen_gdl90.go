@@ -1296,6 +1296,7 @@ type settings struct {
 	UAT_Enabled          bool
 	ES_Enabled           bool
 	OGN_Enabled          bool
+	APRS_Enabled         bool
 	AIS_Enabled          bool
 	Ping_Enabled         bool
 	GPS_Enabled          bool
@@ -1363,6 +1364,7 @@ type status struct {
 	OGN_messages_last_minute                   uint
 	OGN_messages_max                           uint
 	OGN_connected                              bool
+	APRS_connected                              bool
 	AIS_messages_last_minute                   uint
 	AIS_messages_max                           uint
 	AIS_connected                              bool
@@ -1415,6 +1417,7 @@ func defaultSettings() {
 	globalSettings.UAT_Enabled = false
 	globalSettings.ES_Enabled = true
 	globalSettings.OGN_Enabled = true
+	globalSettings.APRS_Enabled = true
 	globalSettings.GPS_Enabled = true
 	globalSettings.IMU_Sensor_Enabled = true
 	globalSettings.BMP_Sensor_Enabled = true

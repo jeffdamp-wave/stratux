@@ -1727,5 +1727,6 @@ func initTraffic() {
 	trafficMutex = &sync.Mutex{}
 	go esListen()
 	go ognListen()
+	go aprsListen()
 	go aisListen()
 }
