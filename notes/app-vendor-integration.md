@@ -163,6 +163,7 @@ Stratux makes available a webserver to retrieve statistics which may be useful t
   "GPS_Enabled": true,
   "BMP_Sensor_Enabled": true,
   "IMU_Sensor_Enabled": true,
+  "IgnoreSelf_Enabled": true,
   "NetworkOutputs": [
     {
       "Conn": null,

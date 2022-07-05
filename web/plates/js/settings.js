@@ -261,7 +261,7 @@ function SettingsCtrl($rootScope, $scope, $state, $location, $window, $http) {
 	$scope.$parent.helppage = 'plates/settings-help.html';
 
 	var toggles = ['UAT_Enabled', 'ES_Enabled', 'OGN_Enabled', 'AIS_Enabled', 'Ping_Enabled', 'OGNI2CTXEnabled', 'Stratus_Enabled', 'LimitTraffic_Enabled', 'GPS_Enabled', 'IMU_Sensor_Enabled',
-		'BMP_Sensor_Enabled', 'DisplayTrafficSource', 'DEBUG', 'ReplayLog', 'AHRSLog', 'PersistentLogging', 'GDL90MSLAlt_Enabled', 'EstimateBearinglessDist', 'DarkMode'];
+		'BMP_Sensor_Enabled', 'DisplayTrafficSource', 'DEBUG', 'ReplayLog', 'AHRSLog', 'PersistentLogging', 'GDL90MSLAlt_Enabled', 'EstimateBearinglessDist', 'DarkMode','IgnoreSelf_Enabled'];
 
 	var settings = {};
 	for (var i = 0; i < toggles.length; i++) {
@@ -302,6 +302,8 @@ function SettingsCtrl($rootScope, $scope, $state, $location, $window, $http) {
 		$scope.FakeTrafficCount = settings.FakeTrafficCount;
 		$scope.GPS_Enabled = settings.GPS_Enabled;
 		$scope.OGNI2CTXEnabled = settings.OGNI2CTXEnabled;
+
+		$scope.IgnoreSelf_Enabled = settings.IgnoreSelf_Enabled;
 
 		$scope.IMU_Sensor_Enabled = settings.IMU_Sensor_Enabled;
 		$scope.BMP_Sensor_Enabled = settings.BMP_Sensor_Enabled;

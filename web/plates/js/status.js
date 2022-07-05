@@ -200,6 +200,7 @@ function StatusCtrl($rootScope, $scope, $state, $http, $interval, craftService) 
 			$scope.Stratus_Enabled = settings.Stratus_Enabled;
 			$scope.LimitTraffic_Enabled = settings.LimitTraffic_Enabled;
 			$scope.visible_gps = settings.GPS_Enabled;
+			$scope.IgnoreSelf_Enabled = settings.IgnoreSelf_Enabled;
 		}, function (response) {
 			// nop
 		});

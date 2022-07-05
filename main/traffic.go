@@ -392,7 +392,9 @@ func sendTrafficUpdates(maxAge time.Duration) {
 					log.Printf("Ownship target detected for code %X\n", ti.Icao_addr)
 				}
 				OwnshipTrafficInfo = ti
-			} else if !shouldIgnore {
+			} 
+
+			if !shouldIgnore && (!isOwnshipTi || !globalSettings.IgnoreSelf_Enabled) {
 				priority := computeTrafficPriority(&ti)
 				sendGDL90(makeTrafficReportMsg(ti), maxAge, priority)
 				thisMsgFLARM, validFLARM, alarmLevel := makeFlarmPFLAAString(ti)

@@ -1348,6 +1348,7 @@ type settings struct {
 	OGNTxPower           int
 
 	PWMDutyMin           int
+	IgnoreSelf_Enabled   bool           // Allows for testing ADSB out of the airplane 
 }
 
 type status struct {
@@ -1364,7 +1365,7 @@ type status struct {
 	OGN_messages_last_minute                   uint
 	OGN_messages_max                           uint
 	OGN_connected                              bool
-	APRS_connected                              bool
+	APRS_connected                             bool
 	AIS_messages_last_minute                   uint
 	AIS_messages_max                           uint
 	AIS_connected                              bool
@@ -1423,6 +1424,7 @@ func defaultSettings() {
 	globalSettings.BMP_Sensor_Enabled = true
 	globalSettings.Stratus_Enabled = false
 	globalSettings.FakeTrafficCount = 0
+	globalSettings.IgnoreSelf_Enabled = true
 	//FIXME: Need to change format below.
 	globalSettings.NetworkOutputs = []networkConnection{
 		{Conn: nil, Ip: "", Port: 4000, Capability: NETWORK_GDL90_STANDARD | NETWORK_AHRS_GDL90},
