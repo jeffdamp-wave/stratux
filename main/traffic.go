@@ -397,18 +397,13 @@ func sendTrafficUpdates(maxAge time.Duration) {
 			if !shouldIgnore && (!isOwnshipTi || !globalSettings.IgnoreSelf_Enabled) {
 				if !globalSettings.IgnoreSelf_Enabled && isOwnshipTi {
 					ln := len(ti.Tail)
-					if ln > 0 {
-						runes := []rune(ti.Tail)
-						runes[ln - 1] = 'G'
-						ti.Tail = string(runes)
+					if ln > 1 {
+						ti.Tail = ti.Tail[:4]
+						ti.Tail = ti.Tail + "SLF"
 					} else {
 						ti.Tail = string("N1GHOST")
 					}
 				}
-
-				//extra temp code quick test
-				ti.Tail = ti.Tail[:2]
-				ti.Tail = ti.Tail + "GHOST"
 
 				priority := computeTrafficPriority(&ti)
 				sendGDL90(makeTrafficReportMsg(ti), maxAge, priority)
