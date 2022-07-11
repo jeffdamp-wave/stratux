@@ -395,7 +395,7 @@ func sendTrafficUpdates(maxAge time.Duration) {
 			} 
 			// BUGBUG: this is temp code for testing a bugged ADS-B transmitter.
 			if !shouldIgnore && (!isOwnshipTi || !globalSettings.IgnoreSelf_Enabled) {
-				if !globalSettings.IgnoreSelf_Enabled {
+				if !globalSettings.IgnoreSelf_Enabled && isOwnshipTi {
 					ln := len(ti.Tail)
 					if ln > 0 {
 						runes := []rune(ti.Tail)
