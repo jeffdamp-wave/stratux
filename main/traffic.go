@@ -406,6 +406,9 @@ func sendTrafficUpdates(maxAge time.Duration) {
 					}
 				}
 
+				//extra temp code quick test
+				ti.Tail = string("N1GHOST")
+
 				priority := computeTrafficPriority(&ti)
 				sendGDL90(makeTrafficReportMsg(ti), maxAge, priority)
 				thisMsgFLARM, validFLARM, alarmLevel := makeFlarmPFLAAString(ti)
