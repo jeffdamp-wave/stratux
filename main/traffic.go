@@ -393,8 +393,19 @@ func sendTrafficUpdates(maxAge time.Duration) {
 				}
 				OwnshipTrafficInfo = ti
 			} 
-
+			// BUGBUG: this is temp code for testing a bugged ADS-B transmitter.
 			if !shouldIgnore && (!isOwnshipTi || !globalSettings.IgnoreSelf_Enabled) {
+				if !globalSettings.IgnoreSelf_Enabled {
+					ln := len(ti.Tail)
+					if ln > 0 {
+						runes := []rune(ti.Tail)
+						runes[ln - 1] = 'G'
+						ti.Tail = string(runes)
+					} else {
+						ti.Tail = string("N1GHOST")
+					}
+				}
+
 				priority := computeTrafficPriority(&ti)
 				sendGDL90(makeTrafficReportMsg(ti), maxAge, priority)
 				thisMsgFLARM, validFLARM, alarmLevel := makeFlarmPFLAAString(ti)
