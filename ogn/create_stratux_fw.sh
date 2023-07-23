@@ -8,7 +8,7 @@ if [[ ! -d esp-idf ]]; then
     read -p "Install esp-idf? [y/n]" -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        git clone -b v4.4.1 --recursive https://github.com/espressif/esp-idf.git
+        git clone -b v4.4.4 --recursive https://github.com/espressif/esp-idf.git
         cd esp-idf && ./install.sh
         cd ..
     else
@@ -24,16 +24,18 @@ cd utils && make read_log && make serial_dump && cd ..
 
 function disable {
     opt=$1
-    sed -i "s/^\s*#define\s*$opt\s/\/\/#define $opt /g" main/config.h
+    sed -i "s~^\s*#define\s*$opt\$~// #define $opt~g" main/config.h
 }
 function enable {
     opt=$1
-    sed -i "s/^\s*\/\/\s*#define\s*$opt\s/#define $opt /g" main/config.h
+    sed -i "s~^\s*//\s*#define\s*$opt\$~#define $opt~g" main/config.h
 
     grep $opt -q main/config.h || echo "#define $opt" >> main/config.h # add option if it doesn't exist yet
 }
 
-
+git checkout main/config.h
+# to simplify our regexes, remove all the comments..
+sed -i "s~\s\s\s*//.*~~g" main/config.h
 
 ## Initial basic configuration
 disable WITH_FollowMe
@@ -44,7 +46,9 @@ disable WITH_GPS_ENABLE
 disable WITH_GPS_MTK
 disable WITH_SD
 disable WITH_SDLOG
-disable WITH_FANET # not ready yet
+disable WITH_AP
+disable WITH_HTTP
+
 
 # ?? WITH_FANET, WITH_LORAWAN
 enable WITH_GPS_UBX
@@ -53,6 +57,8 @@ enable WITH_GPS_NMEA_PASS
 enable WITH_BME280
 enable WITH_PAW
 enable WITH_LORAWAN
+enable WITH_ADSL
+enable WITH_FANET
 
 rm -rf stratux # cleanup of old build
 
@@ -104,6 +110,6 @@ rm -r stratux
 
 # Clean up
 git checkout .
-rm -r esp32-ogn-tracker-bin.tgz utils/read_log utils/serial_dump build
+rm -r esp32-ogn-tracker-bin.* utils/read_log utils/serial_dump build
 
 

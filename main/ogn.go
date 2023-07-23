@@ -27,7 +27,7 @@ import (
 // {"sys":"OGN","addr":"395F39","addr_type":3,"acft_type":"1","lat_deg":51.7657533,"lon_deg":-1.1918533,"alt_msl_m":124,"alt_std_m":63,"track_deg":0.0,"speed_mps":0.3,"climb_mps":-0.5,"turn_dps":0.0,"DOP":1.5}
 type OgnMessage struct {
 	Sys string
-	Time int64
+	Time float64
 	Addr string
 	Addr_type int32
 	Acft_type string
@@ -114,25 +114,8 @@ func ognListen() {
 				ognReadWriter.Write([]byte(data))
 				ognReadWriter.Flush()
 			case data := <- ognIncomingMsgChan:
-				var thisMsg msg
-				thisMsg.MessageClass = MSGCLASS_OGN
-				thisMsg.TimeReceived = stratuxClock.Time
-				thisMsg.Data = data
-	
-				var msg OgnMessage
-				err = json.Unmarshal([]byte(data), &msg)
-				if err != nil {
-					log.Printf("Invalid Data from OGN: " + data)
-					continue
-				}
-	
-				if msg.Sys == "status" {
-					importOgnStatusMessage(msg)
-				} else {
-					msgLogAppend(thisMsg)
-					logMsg(thisMsg) // writes to replay logs
-					importOgnTrafficMessage(msg, data)
-				}
+				TraceLog.Record(CONTEXT_OGN_RX, []byte(data))
+				parseOgnMessage(data, false)
 			case <- pgrmzTimer.C:
 				if isTempPressValid() && mySituation.BaroSourceType != BARO_TYPE_NONE && mySituation.BaroSourceType != BARO_TYPE_ADSBESTIMATE {
 					ognOutgoingMsgChan <- makePGRMZString()
@@ -148,6 +131,28 @@ func ognListen() {
 	}
 }
 
+func parseOgnMessage(data string, fakeCurrentTime bool) {
+	var thisMsg msg
+	thisMsg.MessageClass = MSGCLASS_OGN
+	thisMsg.TimeReceived = stratuxClock.Time
+	thisMsg.Data = data
+
+	var msg OgnMessage
+	err := json.Unmarshal([]byte(data), &msg)
+	if err != nil {
+		log.Printf("Invalid Data from OGN: " + data + " -> " + err.Error())
+		return
+	}
+
+	if msg.Sys == "status" {
+		importOgnStatusMessage(msg)
+	} else {
+		msgLogAppend(thisMsg)
+		logMsg(thisMsg) // writes to replay logs
+		importOgnTrafficMessage(msg, data, fakeCurrentTime)
+	}
+}
+
 func importOgnStatusMessage(msg OgnMessage) {
 	globalStatus.OGN_noise_db = msg.Bkg_noise_db
 	globalStatus.OGN_gain_db = msg.Gain_db
@@ -159,10 +164,14 @@ func importOgnStatusMessage(msg OgnMessage) {
 	}
 }
 
-func importOgnTrafficMessage(msg OgnMessage, data string) {
+func importOgnTrafficMessage(msg OgnMessage, data string, fakeCurrentTime bool) {
 	var ti TrafficInfo
 	addressBytes, _ := hex.DecodeString(msg.Addr)
-	addressBytes = append([]byte{0}, addressBytes...)
+	addressBytes = append([]byte{0}, addressBytes...) // prepend 0 byte
+	if len(addressBytes) != 4 {
+		log.Printf("Ignoring invalid ogn address: " + msg.Addr)
+		return
+	}
 	address := binary.BigEndian.Uint32(addressBytes)
 
 	// GDL90 only knows 2 address types. ICAO and non-ICAO, so we map to those.
@@ -197,6 +206,10 @@ func importOgnTrafficMessage(msg OgnMessage, data string) {
 		}
 	}
 
+	if fakeCurrentTime {
+		msg.Time = float64(time.Now().UTC().Unix())
+	}
+
 	if existingTi, ok := traffic[key]; ok {
 		ti = existingTi
 		// ogn-rx sends 2 types of messages.. normal ones with coords etc, and ones that only supply additional info (registration, Hardware, ...). These usually don't have
@@ -214,7 +227,7 @@ func importOgnTrafficMessage(msg OgnMessage, data string) {
 			traffic[key] = ti
 		}
 		if msg.Time > 0 && !ti.Timestamp.IsZero() {
- 			msgtime := time.Unix(msg.Time, 0)
+ 			msgtime := time.Unix(int64(msg.Time), 0)
 			if ti.Position_valid && ti.Last_source == TRAFFIC_SOURCE_OGN && msgtime.Before(ti.Timestamp) {
 				return // We already have a newer message for this target. This message was probably relayed by another tracker -- skip
 			}
@@ -242,14 +255,11 @@ func importOgnTrafficMessage(msg OgnMessage, data string) {
 	}
 	ti.Last_source = TRAFFIC_SOURCE_OGN
 	if msg.Time > 0 {
-		if msg.Time < ti.Timestamp.Unix() {
+		if msg.Time < float64(ti.Timestamp.Unix()) {
 			//log.Printf("Discarding traffic message from %d as it is %fs too old", ti.Icao_addr, ti.Timestamp.Unix() - msg.Time)
 			return
 		}
-
-
-
-		ti.Timestamp = time.Unix(msg.Time, 0)
+		ti.Timestamp = time.Unix(int64(msg.Time), 0)
 	} else {
 		ti.Timestamp = time.Now().UTC()
 	}

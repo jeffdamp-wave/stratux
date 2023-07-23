@@ -43,15 +43,13 @@ import (
 // https://www.faa.gov/nextgen/programs/adsb/Archival/media/GDL90_Public_ICD_RevA.PDF
 
 var logDirf string      // Directory for all logging
-var debugLogf string    // Set according to OS config.
 var dataLogFilef string // Set according to OS config.
 
 const (
-	STRATUX_HOME   = "/opt/stratux/"
+	STRATUX_HOME  = "/opt/stratux/"
 	configLocation = "/boot/stratux.conf"
 	managementAddr = ":80"
 	logDir         = "/var/log/"
-	debugLogFile   = "stratux.log"
 	dataLogFile    = "stratux.sqlite"
 	//FlightBox: log to /root.
 	logDir_FB           = "/root/"
@@ -102,6 +100,7 @@ const (
 	GPS_TYPE_UART     = 0x01
 	GPS_TYPE_SERIAL   = 0x0A
 	GPS_TYPE_OGNTRACKER = 0x03
+	GPS_TYPE_GXAIRCOM = 0x0F
 	GPS_TYPE_SOFTRF_DONGLE = 0x0B
 	GPS_TYPE_NETWORK  = 0x0C
 	GPS_PROTOCOL_NMEA = 0x10
@@ -120,8 +119,7 @@ const (
 	STRATUS_AHRS_RATE    = 50 * time.Millisecond
 )
 
-var logFileHandle *os.File
-
+var STRATUX_WWW_DIR = STRATUX_HOME + "www/"
 var maxSignalStrength int
 
 var stratuxBuild string
@@ -820,13 +818,9 @@ func blinkStatusLED() {
 	ledON := false
 	for {
 		<-timer.C
-
-		if ledON {
-			ioutil.WriteFile("/sys/class/leds/led0/brightness", []byte("0\n"), 0644)
-		} else {
-			ioutil.WriteFile("/sys/class/leds/led0/brightness", []byte("1\n"), 0644)
-		}
 		ledON = !ledON
+		setActLed(ledON)
+		
 		if ledON != globalStatus.NightMode && len(globalStatus.Errors) == 0 { // System error was cleared - leave it on again
 			return
 		}
@@ -922,7 +916,7 @@ func heartBeatSender() {
 			if len(globalStatus.Errors) == 0 { // Any system errors?
 				if !globalStatus.NightMode { // LED is off by default (/boot/config.txt.)
 					// Turn on green ACT LED on the Pi.
-					ioutil.WriteFile("/sys/class/leds/led0/brightness", []byte("1\n"), 0644)
+					setActLed(true)
 				}
 			} else if !ledBlinking {
 				// This assumes that system errors do not disappear until restart.
@@ -1097,10 +1091,7 @@ func updateGlobalStatus() {
 
 	usage := du.NewDiskUsage("/")
 	globalStatus.DiskBytesFree = usage.Free()
-	fileInfo, err := logFileHandle.Stat()
-	if err == nil {
-		globalStatus.Logfile_Size = fileInfo.Size()
-	}
+	globalStatus.Logfile_Size = logFileSize()
 
 	var ahrsLogSize int64
 	ahrsLogFiles, _ := ioutil.ReadDir("/var/log")
@@ -1310,6 +1301,7 @@ type settings struct {
 	DisplayTrafficSource bool
 	DEBUG                bool
 	ReplayLog            bool
+	TraceLog             bool
 	AHRSLog              bool
 	PersistentLogging    bool
 	IMUMapping           [2]int     // Map from aircraft axis to sensor axis: accelerometer
@@ -1346,6 +1338,12 @@ type settings struct {
 	OGNPilot             string
 	OGNReg               string
 	OGNTxPower           int
+
+	// GxAirCom
+	GXAddr               int
+	GXAddrType           int            // 1=ICAO, 2=Flarm
+	GXAcftType           int
+	GXPilot              string
 
 	PWMDutyMin           int
 }
@@ -1529,7 +1527,7 @@ func saveSettings() {
 		return
 	}
 	defer fd.Close()
-	jsonSettings, _ := json.Marshal(&globalSettings)
+	jsonSettings, _ := json.MarshalIndent(&globalSettings, "", "  ")
 	fd.Write(jsonSettings)
 	fd.Sync()
 	log.Printf("wrote settings.\n")
@@ -1692,52 +1690,30 @@ func gracefulShutdown() {
 
 	//TODO: Any other graceful shutdown functions.
 
-	// Turn off green ACT LED on the Pi.
-	ioutil.WriteFile("/sys/class/leds/led0/brightness", []byte("0\n"), 0644)
+	// Turn off green ACT LED on the Pi. Path changed around kernel 6.1.21-v8
+	setActLed(false)
 }
 
-// Close log file handle, open new one.
-func handleSIGHUP() {
-	logFileHandle.Close()
-	fp, err := os.OpenFile(debugLogf, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-	if err != nil {
-		addSingleSystemErrorf(debugLogf, "Failed to open '%s': %s", debugLogf, err.Error())
-	} else {
-		// Keep the logfile handle for later use
-		logFileHandle = fp
-		mfp := io.MultiWriter(fp, os.Stdout)
-		log.SetOutput(mfp)
-	}
-	log.Printf("signal caught: SIGHUP, handled.\n")
+// Turn off green ACT LED on the Pi. Path changed to leds/ACT/brighgtness around kernel 6.1.21-v8
+func setActLed(state bool) {
+		ledPath := "/sys/class/leds/led0/brightness"
+		if _, err := os.Stat(ledPath); err != nil {
+			ledPath = "/sys/class/leds/ACT/brightness"
+		}
+		data := []byte("0\n")
+		if state {
+			data = []byte("1\n")
+		}
+		ioutil.WriteFile(ledPath, data, 0644)
 }
 
 func signalWatcher() {
 	for {
 		sig := <-sigs
-		if sig == syscall.SIGHUP {
-			handleSIGHUP()
-		} else {
-			log.Printf("signal caught: %s - shutting down.\n", sig.String())
-			gracefulShutdown()
-			os.Exit(1)
-		}
-	}
-}
 
-func clearDebugLogFile() {
-	if logFileHandle != nil {
-		_, err := logFileHandle.Seek(0, 0)
-		if err != nil {
-			log.Printf("Could not seek to the beginning of the logfile\n")
-			return
-		} else {
-			err2 := logFileHandle.Truncate(0)
-			if err2 != nil {
-				log.Printf("Could not truncate the logfile\n")
-				return
-			}
-			log.Printf("Logfile truncated\n")
-		}
+		log.Printf("signal caught: %s - shutting down.\n", sig.String())
+		gracefulShutdown()
+		os.Exit(1)
 	}
 }
 
@@ -1747,10 +1723,19 @@ func isX86DebugMode() bool {
 
 func main() {
 	// Catch signals for graceful shutdown.
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go signalWatcher()
 
 	stratuxClock = NewMonotonic() // Start our "stratux clock".
+
+	if !common.IsRunningAsRoot() {
+		// mount web server to dev directory..
+		ex, err := os.Executable()
+		if err == nil {
+			ex = filepath.Dir(ex)
+			STRATUX_WWW_DIR = ex + "/web/"
+		}
+	}
 
 	// Set up mySituation, do it here so logging JSON doesn't panic
 	mySituation.muGPS = &sync.Mutex{}
@@ -1764,7 +1749,11 @@ func main() {
 	systemErrs = make(map[string]string)
 
 	// Set up status.
+	if stratuxVersion == "" {
+		stratuxVersion = "v0.0"
+	}
 	globalStatus.Version = stratuxVersion
+
 	globalStatus.Build = stratuxBuild
 	globalStatus.Errors = make([]string, 0)
 	//FlightBox: detect via presence of /etc/FlightBox file.
@@ -1778,7 +1767,6 @@ func main() {
 	if _, err := os.Stat("/etc/Merlin"); !os.IsNotExist(err) {
 		globalStatus.HardwareBuild = "Merlin"
 	}
-	debugLogf = filepath.Join(logDirf, debugLogFile)
 	dataLogFilef = filepath.Join(logDirf, dataLogFile)
 
 	//	replayESFilename := flag.String("eslog", "none", "ES Log filename")
@@ -1788,9 +1776,16 @@ func main() {
 	stdinFlag := flag.Bool("uatin", false, "Process UAT messages piped to stdin")
 	writeNetworkConfig := flag.Bool("write-network-config", false, "Only write network configuration files as configured in stratux.conf and exit")
 
+	traceReplay := flag.String("trace", "", "Replay previously recorded trace file and exit")
+	traceReplaySpeed := flag.Float64("traceSpeed", 1.0, "Trace replay speed multiplier")
+	traceReplayFilter := flag.String("traceFilter", "", "Filter trace data by context. Comma separated list of: ais,nmea,aprs,ogn-rx,dump1090,godump978,lowpower_uat")
+	traceSkip := flag.Int64("traceSkip", 0, "Minutes to skip forward in recorded trace")
+	
+
 	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
 
 	flag.Parse()
+	isTraceReplayMode := *traceReplay != ""
 
 	timeStarted = time.Now()
 	runtime.GOMAXPROCS(runtime.NumCPU()) // redundant with Go v1.5+ compiler
@@ -1805,20 +1800,7 @@ func main() {
 		pprof.StartCPUProfile(f)
 	}
 
-	// Duplicate log.* output to debugLog.
-	fp, err := os.OpenFile(debugLogf, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-	if err != nil {
-		addSingleSystemErrorf(debugLogf, "Failed to open '%s': %s", debugLogf, err.Error())
-	} else {
-		defer fp.Close()
-		// Keep the logfile handle for later use
-		logFileHandle = fp
-		mfp := io.MultiWriter(fp, os.Stdout)
-		log.SetOutput(mfp)
-
-		// Make sure crash dumps are written to the log as well
-		syscall.Dup3(int(fp.Fd()), 2, 0)
-	}
+	initLogging()
 
 	// Read settings.
 	readSettings()
@@ -1836,12 +1818,15 @@ func main() {
 
 	// Start the management interface.
 	go managementInterface()
+	go traceLoggerWatchdog()
 
 	crcInit() // Initialize CRC16 table.
 
-	sdrInit()
-	pingInit()
-	initTraffic()
+	if !isTraceReplayMode {
+		sdrInit()
+		pingInit()
+	}
+	initTraffic(isTraceReplayMode)
 
 
 	// Disable replay logs when replaying - so that messages replay data isn't copied into the logs.
@@ -1855,14 +1840,16 @@ func main() {
 		log.Printf("Developer mode set\n")
 	}
 
-	//FIXME: Only do this if data logging is enabled.
-	initDataLog()
+	if !isTraceReplayMode {
+		//FIXME: Only do this if data logging is enabled.
+		initDataLog()
 
-	// Start the AHRS sensor monitoring.
-	initI2CSensors()
+		// Start the AHRS sensor monitoring.
+		initI2CSensors()
+	}
 
 	// Start the GPS external sensor monitoring.
-	initGPS()
+	initGPS(isTraceReplayMode)
 
 	// Start the heartbeat message loop in the background, once per second.
 	go heartBeatSender()
@@ -1893,7 +1880,16 @@ func main() {
 	})
 
 	// Start reading from serial UAT radio.
-	initUATRadioSerial()
+	initUATRadioSerial(isTraceReplayMode)
+
+	if isTraceReplayMode {
+		msgTypes := []string{}
+		if len(*traceReplayFilter) > 0 {
+			msgTypes = strings.Split(*traceReplayFilter, ",")
+		}
+		TraceLog.Replay(*traceReplay, *traceReplaySpeed, *traceSkip, msgTypes)
+		return
+	}
 
 	reader := bufio.NewReader(os.Stdin)
 

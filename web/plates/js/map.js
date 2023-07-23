@@ -11,19 +11,20 @@ function MapCtrl($rootScope, $scope, $state, $http, $interval, craftService) {
 	$scope.aircraftTrails = new ol.source.Vector();
 
 	let osm = new ol.layer.Tile({
-		title: '[online] OSM',
+		title: '<i class="fa fa-cloud"></i> OSM',
 		type: 'base',
 		source: new ol.source.OSM()
 	});
 
 	let openaip = new ol.layer.Tile({
-		title: '[online] OpenAIP',
+		title: '<i class="fa fa-cloud"></i> OpenAIP',
 		type: 'overlay',
 		visible: false,
 		source: new ol.source.XYZ({
-			url: 'http://{1-2}.tile.maps.openaip.net/geowebcache/service/tms/1.0.0/openaip_basemap@EPSG%3A900913@png/{z}/{x}/{-y}.png'
+			url: 'https://api.tiles.openaip.net/api/data/openaip/{z}/{x}/{y}.png?apiKey=f64474b4ab9d2f6bacb2f30d4680e8ae'
 		})
 	});
+	
 
 	// Dynamic MBTiles layers
 	$http.get(URL_GET_TILESETS).then(function(response) {
@@ -46,7 +47,7 @@ function MapCtrl($rootScope, $scope, $state, $http, $interval, craftService) {
 			let layer = undefined;
 			if (format.toLowerCase() == 'pbf') {
 				const vt = new ol.layer.VectorTile({
-					title: '[offline] ' + name,
+					title: name,
 					type: baselayer ? 'base' : 'overlay',
 					extent: ext,
 					source: new ol.source.VectorTile({
@@ -66,7 +67,7 @@ function MapCtrl($rootScope, $scope, $state, $http, $interval, craftService) {
 				layer = vt;
 			} else {
 				layer = new ol.layer.Tile({
-					title: '[offline] ' + name,
+					title: name,
 					type: baselayer ? 'base' : 'overlay',
 					extent: ext,
 					source: new ol.source.XYZ({
@@ -81,6 +82,9 @@ function MapCtrl($rootScope, $scope, $state, $http, $interval, craftService) {
 			else
 				$scope.map.addLayer(layer);
 		}
+		$scope.map.addLayer(aircraftSymbolsLayer);
+		$scope.map.addLayer(aircraftTrailsLayer);
+
 		// Restore layer visibility
 		$scope.map.getLayers().forEach((layer) => {
 			const title = layer.get('title');
@@ -119,9 +123,7 @@ function MapCtrl($rootScope, $scope, $state, $http, $interval, craftService) {
 		target: 'map_display',
 		layers: [
 			osm,
-			openaip,
-			aircraftSymbolsLayer,
-			aircraftTrailsLayer
+			openaip
 		],
 		view: new ol.View({
 			center: ol.proj.fromLonLat([10.0, 52.0]),

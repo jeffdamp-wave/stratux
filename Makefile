@@ -24,10 +24,9 @@ endif
 
 
 
-all:
-	make xdump978 xdump1090 xrtlais gen_gdl90 $(PLATFORMDEPENDENT)
+all: libdump978.so xdump1090 xrtlais gen_gdl90 $(PLATFORMDEPENDENT)
 
-gen_gdl90: main/*.go common/*.go
+gen_gdl90: main/*.go common/*.go libdump978.so
 	LIBRARY_PATH=$(CURDIR) CGO_CFLAGS_ALLOW="-L$(CURDIR)" go build $(BUILDINFO) -o gen_gdl90 -p 4 ./main/
 
 fancontrol: fancontrol_main/*.go common/*.go
@@ -37,7 +36,7 @@ xdump1090:
 	git submodule update --init
 	cd dump1090 && make BLADERF=no
 
-xdump978:
+libdump978.so: dump978/*.c dump978/*.h
 	cd dump978 && make lib
 
 xrtlais:
@@ -59,6 +58,7 @@ optinstall: www ogn/ddb.json
 	mkdir -p $(STRATUX_HOME)/bin
 	mkdir -p $(STRATUX_HOME)/www
 	mkdir -p $(STRATUX_HOME)/ogn
+	mkdir -p $(STRATUX_HOME)/GxAirCom
 	mkdir -p $(STRATUX_HOME)/cfg
 	mkdir -p $(STRATUX_HOME)/lib
 	mkdir -p $(STRATUX_HOME)/mapdata
@@ -80,6 +80,16 @@ optinstall: www ogn/ddb.json
 
 	# OGN stuff
 	cp -f ogn/ddb.json ogn/esp32-ogn-tracker-bin-*.zip ogn/install-ogntracker-firmware-pi.sh ogn/fetch_ddb.sh $(STRATUX_HOME)/ogn
+
+	# GxAirCom stuff
+	# Wget -N doesn't work with -O.. need to change directory temporarily
+	# Could also use latest CI build: https://github.com/rvt/GxAirCom/releases/latest/download/$$artifact
+	cd $(STRATUX_HOME)/GxAirCom/; \
+	wget -N https://raw.githubusercontent.com/pjalocha/esp32-ogn-tracker/master/esptool.py; \
+	for artifact in "firmware_psRam.bin" "spiffs.bin" "partitions.bin" "version.txt" "README.md" "bootloader_dio_40m.bin" "boot_app0.bin" ; do \
+		wget -N https://github.com/rvt/GXAirCom/releases/download/stratux-eu029/$$artifact; \
+	done
+	cp -f GxAirCom/install-GxAirCom-Stratux-firmware.sh $(STRATUX_HOME)/GxAirCom
 
 	# Scripts
 	cp __opt__stratux__bin__stratux-pre-start.sh $(STRATUX_HOME)/bin/stratux-pre-start.sh

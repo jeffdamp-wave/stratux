@@ -110,9 +110,9 @@ cd /root && rm -r WiringPi
 
 # Install golang
 cd /root
-wget https://go.dev/dl/go1.18.linux-arm64.tar.gz
-tar xzf go1.18.linux-arm64.tar.gz
-rm go1.18.linux-arm64.tar.gz
+wget https://go.dev/dl/go1.20.1.linux-arm64.tar.gz
+tar xzf go1.20.1.linux-arm64.tar.gz
+rm go1.20.1.linux-arm64.tar.gz
 
 # Compile stratux
 cd /root/stratux
@@ -142,10 +142,6 @@ cp -f stratux-dnsmasq.conf /etc/dnsmasq.d/stratux-dnsmasq.conf
 cp -f wpa_supplicant_ap.conf /etc/wpa_supplicant/wpa_supplicant_ap.conf
 cp -f interfaces /etc/network/interfaces
 
-#logrotate conf
-cp -f logrotate.conf /etc/logrotate.conf
-cp -f logrotate_d_stratux /etc/logrotate.d/stratux
-
 #sshd config
 cp -f sshd_config /etc/ssh/sshd_config
 
@@ -172,6 +168,9 @@ overlayctl install
 touch /var/grow_root_part
 mkdir -p /overlay/robase # prepare so we can bind-mount root even if overlay is disabled
 
+# So we can import network settings if needed
+touch /boot/.stratux-first-boot
+
 #startup scripts
 cp -f rc.local /etc/rc.local
 
@@ -193,7 +192,7 @@ rm -r /root/stratux
 
 
 # Uninstall packages we don't need, clean up temp stuff
-rm -r /root/go /root/go_path /root/.cache
+rm -rf /root/go /root/go_path /root/.cache
 
 PATH=/root/fake:$PATH apt remove --purge --yes alsa-utils alsa-ucm-conf alsa-topology-conf bluez bluez-firmware cifs-utils cmake cmake-data \
     v4l-utils rsync pigz pi-bluetooth perl cpp cpp-10
@@ -201,7 +200,7 @@ PATH=/root/fake:$PATH apt remove --purge --yes alsa-utils alsa-ucm-conf alsa-top
 PATH=/root/fake:$PATH apt autoremove --purge --yes
 
 apt clean
-rm -r /var/cache/apt
+rm -rf /var/cache/apt
 
-rm -r /proc/*
+rm -rf /proc/*
 rm -r /root/fake

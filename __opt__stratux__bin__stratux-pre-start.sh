@@ -38,4 +38,16 @@ if [ -e ${UPDATE_LOCATION} ]; then
 		reboot
 	fi
 fi
+
+
+if [ -f /boot/.stratux-first-boot ]; then
+	rm /boot/.stratux-first-boot
+	if [ -f /boot/stratux.conf ] && grep -q WiFi /boot/stratux.conf ; then
+		# Import old stratux.conf.. apply network settings
+		/opt/stratux/bin/gen_gdl90 -write-network-config
+		wLog "re-wrote network configuration for first-boot config import. Rebooting... Bye"
+		reboot
+	fi
+fi
+
 wLog "Exited without updating anything..."

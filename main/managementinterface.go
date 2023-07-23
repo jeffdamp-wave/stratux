@@ -24,7 +24,6 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
-	"os/user"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -38,6 +37,7 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 
+	"github.com/b3nn0/stratux/common"
 	humanize "github.com/dustin/go-humanize"
 	"golang.org/x/net/websocket"
 )
@@ -338,6 +338,7 @@ func handleSettingsSetRequest(w http.ResponseWriter, r *http.Request) {
 				log.Printf("handleSettingsSetRequest:error: %s\n", err.Error())
 			} else {
 				reconfigureOgnTracker := false
+				reconfigureGXTracker := false
 				reconfigureFancontrol := false
 				for key, val := range msg {
 					// log.Printf("handleSettingsSetRequest:json: testing for key:%s of type %s\n", key, reflect.TypeOf(val))
@@ -352,6 +353,8 @@ func handleSettingsSetRequest(w http.ResponseWriter, r *http.Request) {
 						globalSettings.OGN_Enabled = val.(bool)
 					case "AIS_Enabled":
 						globalSettings.AIS_Enabled = val.(bool)
+					case "APRS_Enabled":
+						globalSettings.APRS_Enabled = val.(bool)
 					case "Ping_Enabled":
 						globalSettings.Ping_Enabled = val.(bool)
 					case "Stratus_Enabled":
@@ -391,6 +394,8 @@ func handleSettingsSetRequest(w http.ResponseWriter, r *http.Request) {
 						if v != globalSettings.ReplayLog { // Don't mark the files unless there is a change.
 							globalSettings.ReplayLog = v
 						}
+					case "TraceLog":
+						globalSettings.TraceLog = val.(bool)
 					case "AHRSLog":
 						globalSettings.AHRSLog = val.(bool)
 					case "PersistentLogging":
@@ -523,6 +528,19 @@ func handleSettingsSetRequest(w http.ResponseWriter, r *http.Request) {
 					case "OGNTxPower":
 						globalSettings.OGNTxPower = int(val.(float64))
 						reconfigureOgnTracker = true
+					case "GXAddr":
+						inter,_ := strconv.ParseInt(val.(string), 16, 0)
+						globalSettings.GXAddr = int(inter) & 0xffffff
+						reconfigureGXTracker = true
+					case "GXAddrType":
+						globalSettings.GXAddrType = int(val.(float64))
+						reconfigureGXTracker = true
+					case "GXAcftType":
+						globalSettings.GXAcftType = int(val.(float64))
+						reconfigureGXTracker = true
+					case "GXPilot":
+						globalSettings.GXPilot = val.(string)
+						reconfigureGXTracker = true
 					case "PWMDutyMin":
 						globalSettings.PWMDutyMin = int(val.(float64))
 						reconfigureFancontrol = true
@@ -535,6 +553,9 @@ func handleSettingsSetRequest(w http.ResponseWriter, r *http.Request) {
 				applyNetworkSettings(false, false)
 				if reconfigureOgnTracker {
 					configureOgnTrackerFromSettings()
+				}
+				if reconfigureGXTracker {
+					configureGxAirComTracker()
 				}
 				if reconfigureFancontrol {
 					exec.Command("killall", "-SIGUSR1", "fancontrol").Run();
@@ -840,8 +861,7 @@ func setJSONHeaders(w http.ResponseWriter) {
 func defaultServer(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "max-age=360") // 5 min, so that if user installs update, he will revalidate soon enough
 	//	setNoCache(w)
-
-	http.FileServer(http.Dir(STRATUX_HOME + "/www")).ServeHTTP(w, r)
+	http.FileServer(http.Dir(STRATUX_WWW_DIR)).ServeHTTP(w, r)
 }
 
 func handleroPartitionRebuild(w http.ResponseWriter, r *http.Request) {
@@ -885,7 +905,7 @@ div.foot { font: 90% monospace; color: #787878; padding-top: 4px;}
 <thead><tr><th class="n">Name</th><th>Last Modified</th><th>Size (bytes)</th><th class="dl">Options</th></tr></thead>
 <tbody>
 {{range .Children_files}}
-<tr><td class="n"><a href="/logs/stratux/{{.Name}}">{{.Name}}</a></td><td>{{.Mtime}}</td><td>{{.Size}}</td><td class="dl"><a href="/logs/stratux/{{.Name}}">Download</a></td></tr>
+<tr><td class="n"><a href="/logs/{{.Path}}">{{.Name}}</a></td><td>{{.Mtime}}</td><td>{{.Size}}</td><td class="dl"><a href="/logs/{{.Path}}">Download</a></td></tr>
 {{end}}
 </tbody>
 </table>
@@ -896,6 +916,7 @@ div.foot { font: 90% monospace; color: #787878; padding-top: 4px;}
 
 type fileInfo struct {
 	Name  string
+	Path  string
 	Mtime string
 	Size  string
 }
@@ -909,22 +930,38 @@ type dirlisting struct {
 
 //FIXME: This needs to be switched to show a "sessions log" from the sqlite database.
 func viewLogs(w http.ResponseWriter, r *http.Request) {
-
-	names, err := ioutil.ReadDir("/var/log/stratux/")
+	urlpath := strings.TrimPrefix(r.URL.Path, "/logs/")
+	path := "/var/log/" + urlpath
+	finfo, err := os.Stat(path)
 	if err != nil {
+		w.Write([]byte(fmt.Sprintf("Failed to open %s: %s", path, err.Error())))
 		return
 	}
+
+	if !finfo.IsDir() {
+		http.ServeFile(w, r, path)
+		return
+	}
+	
+	names, err := ioutil.ReadDir(path)
+	if err != nil {
+		return
+	}	
 
 	fi := make([]fileInfo, 0)
 	for _, val := range names {
 		if val.Name()[0] == '.' {
 			continue
 		} // Remove hidden files from listing
-
-		if !val.IsDir() {
+		
+		if val.IsDir() {
+			mtime := val.ModTime().Format("2006-Jan-02 15:04:05")
+			sz := ""
+			fi = append(fi, fileInfo{Name: val.Name() + "/", Path: urlpath + "/" + val.Name(), Mtime: mtime, Size: sz})
+		} else {
 			mtime := val.ModTime().Format("2006-Jan-02 15:04:05")
 			sz := humanize.Comma(val.Size())
-			fi = append(fi, fileInfo{Name: val.Name(), Mtime: mtime, Size: sz})
+			fi = append(fi, fileInfo{Name: val.Name(), Path: urlpath + "/" + val.Name(), Mtime: mtime, Size: sz})
 		}
 	}
 
@@ -1111,9 +1148,9 @@ func managementInterface() {
 	gdl90Update = NewUIBroadcaster()
 
 	http.HandleFunc("/", defaultServer)
-	http.Handle("/logs/", http.StripPrefix("/logs/", http.FileServer(http.Dir("/var/log"))))
+	//http.Handle("/logs/", http.StripPrefix("/logs/", http.FileServer(http.Dir("/var/log"))))
 	http.Handle("/mapdata/styles/", http.StripPrefix("/mapdata/styles/", http.FileServer(http.Dir(STRATUX_HOME + "/mapdata/styles"))))
-	http.HandleFunc("/view_logs/", viewLogs)
+	http.HandleFunc("/logs/", viewLogs)
 
 	http.HandleFunc("/gdl90",
 		func(w http.ResponseWriter, req *http.Request) {
@@ -1185,14 +1222,14 @@ func managementInterface() {
 	http.HandleFunc("/tiles/tilesets", handleTilesets)
 	http.HandleFunc("/tiles/", handleTile)
 
-	usr, _ := user.Current()
-	addr := managementAddr
-	if usr.Username != "root" {
+	var addr string
+	if common.IsRunningAsRoot() {
+		addr = managementAddr
+	} else {
 		addr = ":8000" // Make sure we can run without root priviledges on different port
 	}
-	err := http.ListenAndServe(addr, nil)
 
-	if err != nil {
+	if err :=http.ListenAndServe(addr, nil); err != nil {
 		log.Printf("managementInterface ListenAndServe: %s\n", err.Error())
 	}
 }

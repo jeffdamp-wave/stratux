@@ -260,8 +260,8 @@ function SettingsCtrl($rootScope, $scope, $state, $location, $window, $http) {
 
 	$scope.$parent.helppage = 'plates/settings-help.html';
 
-	var toggles = ['UAT_Enabled', 'ES_Enabled', 'OGN_Enabled', 'AIS_Enabled', 'Ping_Enabled', 'OGNI2CTXEnabled', 'Stratus_Enabled', 'LimitTraffic_Enabled', 'GPS_Enabled', 'IMU_Sensor_Enabled',
-		'BMP_Sensor_Enabled', 'DisplayTrafficSource', 'DEBUG', 'ReplayLog', 'AHRSLog', 'PersistentLogging', 'GDL90MSLAlt_Enabled', 'EstimateBearinglessDist', 'DarkMode'];
+	var toggles = ['UAT_Enabled', 'ES_Enabled', 'OGN_Enabled', 'AIS_Enabled', 'APRS_Enabled', 'Ping_Enabled', 'OGNI2CTXEnabled', 'Stratus_Enabled', 'LimitTraffic_Enabled','GPS_Enabled', 'IMU_Sensor_Enabled',
+		'BMP_Sensor_Enabled', 'DisplayTrafficSource', 'DEBUG', 'ReplayLog', 'TraceLog', 'AHRSLog', 'PersistentLogging', 'GDL90MSLAlt_Enabled', 'EstimateBearinglessDist', 'DarkMode'];
 
 	var settings = {};
 	for (var i = 0; i < toggles.length; i++) {
@@ -272,10 +272,8 @@ function SettingsCtrl($rootScope, $scope, $state, $location, $window, $http) {
 	$http.get(URL_STATUS_GET).then(function(response) {
 		var status = angular.fromJson(response.data);
 		var gpsHardwareCode = (status.GPS_detected_type & 0x0f);
-		if (gpsHardwareCode == 3 || status.OGN_tx_enabled)
-			$scope.hasOgnTracker = true;
-		else
-			$scope.hasOgnTracker = false;
+		$scope.hasOgnTracker = gpsHardwareCode == 3 || status.OGN_tx_enabled;
+		$scope.hasGXTracker = gpsHardwareCode == 15;
 	});
 
 	function loadSettings(data) {
@@ -296,6 +294,7 @@ function SettingsCtrl($rootScope, $scope, $state, $location, $window, $http) {
 		$scope.ES_Enabled = settings.ES_Enabled;
 		$scope.OGN_Enabled = settings.OGN_Enabled;
 		$scope.AIS_Enabled = settings.AIS_Enabled;
+		$scope.APRS_Enabled = settings.APRS_Enabled;
 		$scope.Ping_Enabled = settings.Ping_Enabled;
 		$scope.Stratus_Enabled = settings.Stratus_Enabled;
 		$scope.LimitTraffic_Enabled = settings.LimitTraffic_Enabled;
@@ -308,6 +307,7 @@ function SettingsCtrl($rootScope, $scope, $state, $location, $window, $http) {
 		$scope.DisplayTrafficSource = settings.DisplayTrafficSource;
 		$scope.DEBUG = settings.DEBUG;
 		$scope.ReplayLog = settings.ReplayLog;
+		$scope.TraceLog = settings.TraceLog;
 		$scope.AHRSLog = settings.AHRSLog;
 		$scope.PersistentLogging = settings.PersistentLogging;
 
@@ -342,6 +342,11 @@ function SettingsCtrl($rootScope, $scope, $state, $location, $window, $http) {
 		$scope.OGNPilot = settings.OGNPilot;
 		$scope.OGNReg = settings.OGNReg;
 		$scope.OGNTxPower = settings.OGNTxPower;
+
+		$scope.GXAcftType = settings.GXAcftType;
+		$scope.GXPilot = settings.GXPilot;
+		$scope.GXAddr = settings.GXAddr.toString(16);
+		$scope.GXAddrType = settings.GXAddrType.toString();
 
 		$scope.PWMDutyMin = settings.PWMDutyMin;
 
@@ -684,9 +689,24 @@ function SettingsCtrl($rootScope, $scope, $state, $location, $window, $http) {
 			getSettings();
 		}, 1000);
 	}
+
+	$scope.updateGXTrackerConfig = function(action) {
+		var newsettings = {
+			"GXAddr": $scope.GXAddr,
+			"GXAddrType": parseInt($scope.GXAddrType),
+			"GXAcftType": parseInt($scope.GXAcftType),
+			"GXPilot": $scope.GXPilot,
+		};
+		setSettings(angular.toJson(newsettings));
+
+		// reload settings after a short time, to check if GX tracker actually accepted the settings
+		setTimeout(function() {
+			getSettings();
+		}, 5000);
+	}
 }
 
-function isValidSSID(str) { return /^[a-zA-Z0-9() \._-]{1,32}$/g.test(str); }
+function isValidSSID(str) { return /^[a-zA-Z0-9()! \._-]{1,32}$/g.test(str); }
 function isValidWPA(str) { return /^[\u0020-\u007e]{8,63}$/g.test(str); }
 function isValidPin(str) { return /^([\d]{4}|[\d]{8})$/g.test(str); }
 

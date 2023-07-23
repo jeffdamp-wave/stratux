@@ -143,6 +143,7 @@ var readyToInitGPS bool //TODO: replace with channel control to terminate gorout
 var Satellites map[string]SatelliteInfo
 
 var ognTrackerConfigured = false;
+var gxAirComTrackerConfigured = false;
 
 /*
 u-blox5_Referenzmanual.pdf
@@ -250,6 +251,7 @@ func initGPSSerial() bool {
  	} else if _, err := os.Stat("/dev/ttyAMA0"); err == nil { // ttyAMA0 is PL011 UART (GPIO pins 8 and 10) on all RPi.
 		device = "/dev/ttyAMA0"
 		globalStatus.GPS_detected_type = GPS_TYPE_UART
+		baudrates = []int{115200, 38400, 9600}
 	} else {
 		if globalSettings.DEBUG {
 			log.Printf("No GPS device found.\n")
@@ -260,11 +262,13 @@ func initGPSSerial() bool {
 		log.Printf("Using %s for GPS\n", device)
 	}
 
-	// Open port at default baud for config.
-	serialConfig = &serial.Config{Name: device, Baud: baudrates[0]}
-	p, err := serial.OpenPort(serialConfig)
+	// try to open port with previously defined baud rate
+	// port remains opend if detectOpenSerialPort finds matching baurate parameter
+	// and will be closed after reprogramming.
+
+	p, err := detectOpenSerialPort(device, baudrates)
 	if err != nil {
-		log.Printf("serial port err: %s\n", err.Error())
+		log.Printf("serial port/baudrate detection err: %s\n", err.Error())
 		return false
 	}
 
@@ -290,7 +294,8 @@ func initGPSSerial() bool {
 			log.Printf("Finished writing SiRF GPS config to %s. Opening port to test connection.\n", device)
 		}
 	} else if globalStatus.GPS_detected_type == GPS_TYPE_UBX6 || globalStatus.GPS_detected_type == GPS_TYPE_UBX7 ||
-	          globalStatus.GPS_detected_type == GPS_TYPE_UBX8 || globalStatus.GPS_detected_type == GPS_TYPE_UBX9 {
+	          globalStatus.GPS_detected_type == GPS_TYPE_UBX8 || globalStatus.GPS_detected_type == GPS_TYPE_UBX9 ||
+		  globalStatus.GPS_detected_type == GPS_TYPE_UART {
 
 		// Byte order for UBX configuration is little endian.
 
@@ -306,7 +311,6 @@ func initGPSSerial() bool {
 		// load default configuration             |      clearMask     |  |     saveMask       |  |     loadMask       |  deviceMask
 		//p.Write(makeUBXCFG(0x06, 0x09, 13, []byte{0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0x00, 0x03}))
 		//time.Sleep(100* time.Millisecond) // pause and wait for the GPS to finish configuring itself before closing / reopening the port
-
 
 		if globalStatus.GPS_detected_type == GPS_TYPE_UBX9 {
 			if globalSettings.DEBUG {
@@ -400,6 +404,7 @@ func initGPSSerial() bool {
 	// Re-open port at newly configured baud so we can read messages. ReadTimeout is set to keep from blocking the gpsSerialReader() on misconfigures or ttyAMA disconnects
 	// serialConfig = &serial.Config{Name: device, Baud: baudrate, ReadTimeout: time.Millisecond * 2500}
 	// serial.OpenPort(serialConfig)
+	
 	p, err = detectOpenSerialPort(device, baudrates)
 	if err != nil {
 		log.Printf("serial port err: %s\n", err.Error())
@@ -408,6 +413,7 @@ func initGPSSerial() bool {
 
 	serialPort = p
 	return true
+
 }
 
 func detectOpenSerialPort(device string, baudrates []int) (*(serial.Port), error) {
@@ -449,9 +455,9 @@ func writeUblox8ConfigCommands(p *serial.Port) {
 	gps     := []byte{0x00, 0x08, 0x10, 0x00, 0x01, 0x00, 0x01, 0x01} // enable GPS with 8-16 channels (ublox default)
 	sbas    := []byte{0x01, 0x01, 0x03, 0x00, 0x01, 0x00, 0x01, 0x01} // enable SBAS with 1-3 channels (ublox default)
 	galileo := []byte{0x02, 0x08, 0x08, 0x00, 0x01, 0x00, 0x01, 0x01} // enable Galileo with 8-8 channels (ublox default: disabled and 4-8 channels)
-	beidou  := []byte{0x03, 0x08, 0x10, 0x00, 0x00, 0x00, 0x01, 0x01} // disable BEIDOU
+	beidou  := []byte{0x03, 0x08, 0x10, 0x00, 0x01, 0x00, 0x01, 0x01} // enable BEIDOU with 8-16 channels
 	qzss    := []byte{0x05, 0x01, 0x03, 0x00, 0x01, 0x00, 0x01, 0x01} // enable QZSS 1-3 channels, L1C/A (ublox default: 0-3 channels)
-	glonass := []byte{0x06, 0x08, 0x10, 0x00, 0x01, 0x00, 0x01, 0x01} // enable GLONASS with 8-16 channels (ublox default: 8-14 channels)
+	glonass := []byte{0x06, 0x08, 0x10, 0x00, 0x00, 0x00, 0x01, 0x01} // disable GLONASS
 	
 	cfgGnss = append(cfgGnss, gps...)
 	cfgGnss = append(cfgGnss, sbas...)
@@ -565,6 +571,42 @@ func configureOgnTracker() {
 	serialPort.Flush()
 
 	globalStatus.GPS_detected_type = GPS_TYPE_OGNTRACKER
+}
+
+func requestGxAirComTrackerConfig() {
+	if serialPort == nil {
+		return
+	}
+	serialPort.Write([]byte(appendNmeaChecksum("$PGXCF,?") + "\r\n")) // Request configuration
+	serialPort.Flush()
+}
+
+func configureGxAirComTracker() {
+	if serialPort == nil {
+		return
+	}
+
+	// $PGXCF,<version>,<Output Serial>,<eMode>,<eOutputVario>,<output Fanet>,<output GPS>,<output FLARM>,<customGPSConfig>,<Aircraft Type (hex)>,<Address Type>,<Address (hex)>,<Pilot Name> 
+	//  0      1         2               3              4              5            6              7                 8                     9              10              11      12
+	requiredSentence := fmt.Sprintf("$PGXCF,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%06X,%s",
+		1,  // PGXCF Version
+		0,  // Serial out
+		0,  // Airmode
+		0,  // Vario disabled // 0=noVario, 1= LK8EX1, 2=LXPW
+		1,  // Fanet
+		1,  // GPS
+		1,  // Flarm
+		1,  // Stratux NMEA
+		globalSettings.GXAcftType,
+		globalSettings.GXAddrType,
+		globalSettings.GXAddr,
+		globalSettings.GXPilot)
+
+	fullSentence := appendNmeaChecksum(requiredSentence)
+	log.Printf("Configuring GxAirCom Tracker with: " + fullSentence)
+	serialPort.Write([]byte(fullSentence + "\r\n")) // Set configuration
+	serialPort.Flush()
+	gxAirComTrackerConfigured = false
 }
 
 // func validateNMEAChecksum determines if a string is a properly formatted NMEA sentence with a valid checksum.
@@ -1021,9 +1063,13 @@ return is false if errors occur during parse, or if GPS position is invalid
 return is true if parse occurs correctly and position is valid.
 
 */
-
 func processNMEALine(l string) (sentenceUsed bool) {
+	return processNMEALineLow(l, false)
+}
+
+func processNMEALineLow(l string, fakeGpsTimeToCurr bool) (sentenceUsed bool) {
 	mySituation.muGPS.Lock()
+	TraceLog.Record(CONTEXT_NMEA, []byte(l))
 
 	defer func() {
 		if sentenceUsed || globalSettings.DEBUG {
@@ -1249,6 +1295,12 @@ func processNMEALine(l string) (sentenceUsed bool) {
 			gpsTimeStr := fmt.Sprintf("%s %02d:%02d:%06.3f", x[9], hr, min, sec)
 			gpsTime, err := time.Parse("020106 15:04:05.000", gpsTimeStr)
 			gpsTime = gpsTime.Add(gpsTimeOffsetPpsMs) // rough estimate for PPS offset
+
+			if fakeGpsTimeToCurr {
+				// Used during trace replay: pretend gps time equals current time, so stratux accepts the NMEA as current
+				gpsTime = time.Now().UTC()
+			}
+
 			if err == nil && gpsTime.After(time.Date(2016, time.January, 0, 0, 0, 0, 0, time.UTC)) { // Ignore dates before 2016-JAN-01.
 				tmpSituation.GPSLastGPSTimeStratuxTime = stratuxClock.Time
 				tmpSituation.GPSTime = gpsTime
@@ -1256,12 +1308,19 @@ func processNMEALine(l string) (sentenceUsed bool) {
 				if time.Since(gpsTime) > 300*time.Millisecond || time.Since(gpsTime) < -300*time.Millisecond {
 					setStr := gpsTime.Format("20060102 15:04:05.000") + " UTC"
 					log.Printf("setting system time from %s to: '%s'\n", time.Now().Format("20060102 15:04:05.000"), setStr)
-					if err := exec.Command("date", "-s", setStr).Run(); err != nil {
+					var err error
+					if common.IsRunningAsRoot() {
+						err = exec.Command("date", "-s", setStr).Run()
+					} else {
+						err = exec.Command("sudo", "date", "-s", setStr).Run()
+					}					
+					if err != nil {
 						log.Printf("Set Date failure: %s error\n", err)
 					} else {
 						log.Printf("Time set from GPS. Current time is %v\n", time.Now())
 					}
 				}
+				TraceLog.OnTimestamp(gpsTime)
 			}
 		}
 
@@ -1385,16 +1444,16 @@ func processNMEALine(l string) (sentenceUsed bool) {
 					svStr = fmt.Sprintf("R%d", sv-64)	// GLONASS 65-96
 				} else if sv <= 158 {
 					svType = SAT_TYPE_SBAS
-					svStr = fmt.Sprintf("S%d", sv-151)	// SBAS 152-158
+					svStr = fmt.Sprintf("S%d", sv)		// SBAS 152-158
 				} else if sv <= 202 {
 					svType = SAT_TYPE_QZSS
 					svStr = fmt.Sprintf("Q%d", sv-192)	// QZSS 193-202
 				} else if sv <= 336 {
 					svType = SAT_TYPE_GALILEO
 					svStr = fmt.Sprintf("E%d", sv-300)	// GALILEO 301-336
-				} else if sv <= 437 {
+				} else if sv <= 463 {
 					svType = SAT_TYPE_BEIDOU
-					svStr = fmt.Sprintf("B%d", sv-400)	// BEIDOU 401-437
+					svStr = fmt.Sprintf("B%d", sv-400)	// BEIDOU 401-463
 				} else {
 					svType = SAT_TYPE_UNKNOWN
 					svStr = fmt.Sprintf("U%d", sv)
@@ -1523,16 +1582,16 @@ func processNMEALine(l string) (sentenceUsed bool) {
 				svStr = fmt.Sprintf("R%d", sv-64)	// GLONASS 65-96
 			} else if sv <= 158 {
 				svType = SAT_TYPE_SBAS
-				svStr = fmt.Sprintf("S%d", sv-151)	// SBAS 152-158
+				svStr = fmt.Sprintf("S%d", sv)		// SBAS 152-158
 			} else if sv <= 202 {
 				svType = SAT_TYPE_QZSS
 				svStr = fmt.Sprintf("Q%d", sv-192)	// QZSS 193-202
 			} else if sv <= 336 {
 				svType = SAT_TYPE_GALILEO
 				svStr = fmt.Sprintf("E%d", sv-300)	// GALILEO 301-336
-			} else if sv <= 437 {
+			} else if sv <= 463 {
 				svType = SAT_TYPE_BEIDOU
-				svStr = fmt.Sprintf("B%d", sv-400)	// BEIDOU 401-437
+				svStr = fmt.Sprintf("B%d", sv-400)	// BEIDOU 401-463
 			} else {
 				svType = SAT_TYPE_UNKNOWN
 				svStr = fmt.Sprintf("U%d", sv)
@@ -1697,6 +1756,54 @@ func processNMEALine(l string) (sentenceUsed bool) {
 		}
 	}
 
+    // Only sent by GxAirCOm tracker. We use this to detect that GxAirCom tracker is connected and configure it as needed
+    if x[0] == "PFLAV" && x[4] == "GXAircom" {
+        if !gxAirComTrackerConfigured {
+			gpsTimeOffsetPpsMs = 130 * time.Millisecond
+			globalStatus.GPS_detected_type = GPS_TYPE_GXAIRCOM
+			gxAirComTrackerConfigured = true
+            go func() {
+                requestGxAirComTrackerConfig()
+			}()
+        }
+
+        return true
+    }
+
+    if x[0] == "PGXCF" && x[1] == "1" {
+		// $PGXCF,<version>,<Output Serial>,<eMode>,<eOutputVario>,<output Fanet>,<output GPS>,<output FLARM>,<customGPSConfig>,<Aircraft Type (hex)>,<Address Type>,<Address (hex)>,<Pilot Name> 
+		//  0      1         2               3       4              5            6              7                 8                     9              10              11             12
+		log.Printf("Received GxAirCom Tracker configuration: " + strings.Join(x, ","))
+
+		GXAcftType,_ := strconv.ParseInt(x[9], 16, 0)
+		if (globalSettings.GXAcftType==0) {
+			globalSettings.GXAcftType = int(GXAcftType)
+		}
+
+		GXAddrType,_ := strconv.Atoi(x[10]) 
+		if (globalSettings.GXAddrType==0) {
+			globalSettings.GXAddrType = GXAddrType
+		}
+
+		GXAddr,_ := strconv.ParseInt(x[11], 16, 0)
+		if (globalSettings.GXAddr==0) {
+			globalSettings.GXAddr = int(GXAddr)
+		}
+
+		if (globalSettings.GXPilot=="") {
+			globalSettings.GXPilot = x[12]
+		}
+
+        if (x[2] != "0" || x[5] == "0" || x[6] == "0" || x[7] == "0" || x[8] == "0" || 
+			int(GXAcftType) != globalSettings.GXAcftType || int(GXAddrType) != globalSettings.GXAddrType || int(GXAddr) != globalSettings.GXAddr) {
+			configureGxAirComTracker()
+        } else {
+			log.Printf("GxAirCom tracker configuration ok!")
+		}
+
+        return true
+    }
+
 	// Only evaluate PGRMZ for SoftRF/Flarm, where we know that it is standard barometric pressure.
 	// might want to add more types if applicable.
 	// $PGRMZ,1089,f,3*2B
@@ -1757,8 +1864,6 @@ func configureOgnTrackerFromSettings() {
 	serialPort.Write([]byte(getOgnTrackerConfigQueryString())) // re-read settings from tracker
 	serialPort.Flush()
 }
-
-
 
 var gnssBaroAltDiffs = make(map [int]int)
 // Little helper function to dump the gnssBaroAltDiffs map to CSV for plotting
@@ -2201,8 +2306,10 @@ func pollGPS() {
 	}
 }
 
-func initGPS() {
+func initGPS(isReplayMode bool) {
 	Satellites = make(map[string]SatelliteInfo)
 
-	go pollGPS()
+	if !isReplayMode {
+		go pollGPS()
+	}
 }
