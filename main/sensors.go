@@ -10,7 +10,7 @@ import (
 
 	"github.com/b3nn0/goflying/ahrs"
 	"github.com/b3nn0/goflying/ahrsweb"
-	"github.com/b3nn0/stratux/common"
+	"github.com/jeffdamp-wave/stratux"
 	"github.com/b3nn0/stratux/sensors"
 	"github.com/kidoman/embd"
 	_ "github.com/kidoman/embd/host/all"
