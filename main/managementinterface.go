@@ -37,7 +37,7 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 
-	"github.com/jeffdamp-wave/stratux"
+	"github.com/b3nn0/stratux/common"
 	humanize "github.com/dustin/go-humanize"
 	"golang.org/x/net/websocket"
 )
